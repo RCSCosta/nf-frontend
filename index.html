@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NF Entrada — Supabase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:#0a0c0f;--bg2:#111418;--bg3:#181c22;--bg4:#1e232b;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --accent:#00e5a0;--accent2:#00b87a;--accent-dim:rgba(0,229,160,0.08);
+  --warn:#f59e0b;--warn-dim:rgba(245,158,11,0.1);
+  --danger:#ef4444;--danger-dim:rgba(239,68,68,0.1);
+  --info:#3b82f6;--info-dim:rgba(59,130,246,0.1);
+  --purple:#a78bfa;--purple-dim:rgba(167,139,250,0.1);
+  --text:#e8eaf0;--text2:#8b9099;--text3:#4a5060;
+  --radius:10px;--radius-lg:16px;--shadow:0 4px 24px rgba(0,0,0,0.5);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;display:flex;overflow-x:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* CONFIG SCREEN */
+.config-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:0}
+.config-screen.hidden{display:none}
+.config-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);width:480px;overflow:hidden;box-shadow:var(--shadow)}
+.config-logo{padding:32px 32px 24px;border-bottom:1px solid var(--border);text-align:center}
+.config-logo-mark{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;color:var(--accent);letter-spacing:-1px}
+.config-logo-sub{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:2px;margin-top:4px}
+.config-body{padding:28px 32px}
+.config-field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.config-label{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-family:'DM Mono',monospace}
+.config-input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:11px 14px;color:var(--text);font-size:13px;font-family:'DM Mono',monospace;outline:none;transition:border-color 0.15s;width:100%}
+.config-input:focus{border-color:var(--accent)}
+.config-input::placeholder{color:var(--text3)}
+.config-footer{padding:20px 32px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px}
+.config-hint{font-size:11px;color:var(--text3);text-align:center;line-height:1.6}
+.config-hint a{color:var(--accent);text-decoration:none}
+.config-error{font-size:12px;color:var(--danger);text-align:center;padding:8px;background:var(--danger-dim);border-radius:6px;display:none}
+.config-error.show{display:block}
+
+/* SIDEBAR */
+.sidebar{width:220px;min-height:100vh;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:100}
+.logo{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
+.logo-mark{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;color:var(--accent);letter-spacing:-0.5px}
+.logo-sub{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:2px;margin-top:2px;font-family:'DM Mono',monospace}
+.nav{padding:16px 12px;flex:1}
+.nav-section{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--text3);font-family:'DM Mono',monospace;padding:0 8px;margin:16px 0 6px}
+.nav-section:first-child{margin-top:0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--text2);font-size:13px;font-weight:400;transition:all 0.15s;position:relative;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--accent-dim);color:var(--accent);font-weight:500}
+.nav-item.active::before{content:'';position:absolute;left:-12px;top:50%;transform:translateY(-50%);width:3px;height:20px;background:var(--accent);border-radius:0 2px 2px 0}
+.nav-icon{width:16px;height:16px;opacity:0.7;flex-shrink:0}
+.nav-item.active .nav-icon{opacity:1}
+.nav-badge{margin-left:auto;background:var(--accent-dim);color:var(--accent);font-size:10px;font-family:'DM Mono',monospace;padding:1px 6px;border-radius:20px;border:1px solid rgba(0,229,160,0.2)}
+.nav-badge.warn{background:var(--warn-dim);color:var(--warn);border-color:rgba(245,158,11,0.2)}
+.sidebar-footer{padding:16px;border-top:1px solid var(--border)}
+.company-tag{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.company-avatar{width:28px;height:28px;background:linear-gradient(135deg,var(--accent2),var(--info));border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:11px;color:#fff;flex-shrink:0}
+.company-name{font-size:12px;font-weight:500}
+.company-cnpj{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace}
+.sb-status{display:flex;align-items:center;gap:6px;margin-top:8px}
+.sb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sb-dot.on{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 2s infinite}
+.sb-dot.off{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.sb-txt{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3)}
+
+/* MAIN */
+.main{margin-left:220px;flex:1;min-height:100vh;display:flex;flex-direction:column}
+.topbar{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg2);position:sticky;top:0;z-index:50}
+.page-title{font-family:'Syne',sans-serif;font-weight:700;font-size:16px}
+.page-crumb{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:1px}
+.topbar-actions{display:flex;gap:10px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.btn:hover{background:var(--bg4)}
+.btn-accent{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+.btn-accent:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn-ghost{background:transparent;border-color:transparent}
+.btn-ghost:hover{background:var(--bg3);border-color:var(--border)}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.content{padding:28px;flex:1}
+.view{display:none}.view.active{display:block}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-family:'Syne',sans-serif;font-weight:600;font-size:14px}
+.card-body{padding:20px}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;position:relative;overflow:hidden;transition:border-color 0.2s}
+.stat-card:hover{border-color:var(--border2)}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.stat-card.green::before{background:var(--accent)}
+.stat-card.yellow::before{background:var(--warn)}
+.stat-card.blue::before{background:var(--info)}
+.stat-card.purple::before{background:var(--purple)}
+.stat-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-family:'DM Mono',monospace}
+.stat-value{font-family:'Syne',sans-serif;font-weight:700;font-size:26px;margin:8px 0 4px;line-height:1}
+.stat-value.green{color:var(--accent)}.stat-value.yellow{color:var(--warn)}.stat-value.blue{color:var(--info)}.stat-value.purple{color:var(--purple)}
+.stat-sub{font-size:11px;color:var(--text3)}
+.grid-3{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px}
+
+/* SEFAZ */
+.sefaz-status-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite}
+.pending-list{display:flex;flex-direction:column;gap:8px}
+.pending-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)}
+.pending-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-new{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+.dot-warn{background:var(--warn)}
+.pending-supplier{font-size:12px;font-weight:500;flex:1}
+.pending-key{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;flex:1}
+.pending-value{font-size:12px;font-weight:600;font-family:'DM Mono',monospace;flex-shrink:0}
+.pending-actions{display:flex;gap:6px}
+.btn-xs{padding:4px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+.btn-xs:hover{background:var(--bg4);color:var(--text)}
+.btn-xs.confirm{border-color:rgba(0,229,160,0.3);color:var(--accent)}
+.btn-xs.confirm:hover{background:var(--accent-dim)}
+
+/* UPLOAD */
+.upload-zone{border:1.5px dashed var(--border2);border-radius:var(--radius-lg);padding:56px 40px;text-align:center;transition:all 0.2s;cursor:pointer;position:relative;margin-bottom:20px;background:var(--bg2)}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:var(--accent-dim)}
+.upload-icon{width:48px;height:48px;border-radius:12px;background:var(--accent-dim);border:1px solid rgba(0,229,160,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.upload-title{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;margin-bottom:8px}
+.upload-sub{color:var(--text2);font-size:13px}
+.upload-formats{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.format-tag{padding:3px 10px;border-radius:20px;font-size:10px;font-family:'DM Mono',monospace;background:var(--bg3);border:1px solid var(--border);color:var(--text3)}
+.upload-progress-list{display:flex;flex-direction:column;gap:10px}
+.upload-item{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius)}
+.upload-item-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-family:'DM Mono',monospace;font-weight:500}
+.icon-xml{background:var(--info-dim);color:var(--info);border:1px solid rgba(59,130,246,0.2)}
+.icon-ok{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(0,229,160,0.2)}
+.icon-err{background:var(--danger-dim);color:var(--danger);border:1px solid rgba(239,68,68,0.2)}
+.icon-dup{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,0.2)}
+.upload-item-info{flex:1;min-width:0}
+.upload-item-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upload-item-detail{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
+.progress-bar{flex:1;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;transition:width 0.4s ease}
+.fill-green{background:var(--accent)}.fill-blue{background:var(--info)}.fill-red{background:var(--danger)}.fill-yellow{background:var(--warn)}
+.upload-status{font-size:10px;font-family:'DM Mono',monospace;min-width:60px;text-align:right}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:10px 14px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-family:'DM Mono',monospace;font-weight:400;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg3)}
+tbody td{padding:12px 14px;vertical-align:middle}
+.td-mono{font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)}
+.td-value{font-family:'DM Mono',monospace;font-weight:500}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:10px;font-family:'DM Mono',monospace;font-weight:500;white-space:nowrap}
+.badge-green{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(0,229,160,0.2)}
+.badge-yellow{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,0.2)}
+.badge-blue{background:var(--info-dim);color:var(--info);border:1px solid rgba(59,130,246,0.2)}
+.badge-purple{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(167,139,250,0.2)}
+.badge-red{background:var(--danger-dim);color:var(--danger);border:1px solid rgba(239,68,68,0.2)}
+
+/* FILTERS */
+.filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.filter-input{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.15s}
+.filter-input:focus{border-color:var(--accent)}
+.filter-input::placeholder{color:var(--text3)}
+option{background:var(--bg3)}
+
+/* CFOP */
+.cfop-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cfop-item{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)}
+.cfop-code{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--accent);min-width:50px}
+.cfop-desc{flex:1}
+.cfop-name{font-size:12px;font-weight:500}
+.cfop-type{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* SEFAZ VIEW */
+.sefaz-env-tabs{display:flex;gap:6px;margin-bottom:20px}
+.env-tab{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:500;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+.env-tab.active{background:var(--accent-dim);color:var(--accent);border-color:rgba(0,229,160,0.3)}
+.sefaz-config-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.field-group{display:flex;flex-direction:column;gap:6px}
+.field-label{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+.field-input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.15s;width:100%}
+.field-input:focus{border-color:var(--accent)}
+.field-select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:100%;cursor:pointer;appearance:none}
+.cert-zone{border:1.5px dashed var(--border2);border-radius:var(--radius);padding:28px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:16px}
+.cert-zone:hover{border-color:var(--accent);background:var(--accent-dim)}
+.sefaz-log{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);height:200px;overflow-y:auto;line-height:1.8}
+.log-line{display:flex;gap:10px}
+.log-time{color:var(--text3);flex-shrink:0}
+.log-ok{color:var(--accent)}.log-err{color:var(--danger)}.log-warn{color:var(--warn)}.log-info{color:var(--info)}
+
+/* REPORTS */
+.report-period{display:flex;align-items:center;gap:12px;padding:16px 20px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px}
+.period-label{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+.period-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg4);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.15s}
+.period-btn:hover{border-color:var(--border2);color:var(--text)}
+.period-current{font-family:'Syne',sans-serif;font-weight:700;font-size:16px}
+.report-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.summary-card{padding:20px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)}
+.summary-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-family:'DM Mono',monospace}
+.summary-value{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;margin-top:8px}
+
+/* TOAST */
+.toast-container{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:10px;z-index:9999}
+.toast{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:10px;min-width:280px;animation:slideIn 0.3s ease;box-shadow:var(--shadow)}
+@keyframes slideIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.toast.fade-out{animation:fadeOut 0.3s ease forwards}
+@keyframes fadeOut{to{opacity:0;transform:translateY(8px)}}
+.toast-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.toast-text{font-size:13px;flex:1}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity 0.2s;backdrop-filter:blur(4px)}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);width:520px;max-height:80vh;overflow-y:auto;box-shadow:var(--shadow)}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-family:'Syne',sans-serif;font-weight:700;font-size:15px}
+.modal-body{padding:24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.close-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.15s}
+.close-btn:hover{background:var(--bg3);color:var(--text)}
+
+.detail-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.detail-row:last-child{border-bottom:none}
+.detail-label{font-size:11px;color:var(--text3);min-width:160px;font-family:'DM Mono',monospace}
+.detail-value{font-size:12px;color:var(--text)}
+.nfe-key{font-family:'DM Mono',monospace;font-size:10px;color:var(--text2);word-break:break-all;background:var(--bg3);padding:4px 8px;border-radius:4px;border:1px solid var(--border)}
+
+.mini-chart{display:flex;align-items:flex-end;gap:4px;height:60px;padding-top:8px}
+.chart-bar{flex:1;border-radius:3px 3px 0 0;background:var(--accent-dim);border-top:1px solid rgba(0,229,160,0.3)}
+.chart-months{display:flex;gap:4px;margin-top:4px}
+.chart-month{flex:1;text-align:center;font-size:9px;color:var(--text3);font-family:'DM Mono',monospace}
+.section-divider{height:1px;background:var(--border);margin:20px 0}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:32px;margin-bottom:12px;opacity:0.4}
+.empty-text{font-size:14px}
+
+/* LOADING SPINNER */
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ==================== AUTH SCREEN ==================== -->
+<div class="config-screen" id="config-screen">
+  <div class="config-box">
+    <div class="config-logo">
+      <div class="config-logo-mark">NF·ENTRADA</div>
+      <div class="config-logo-sub" id="auth-subtitle">Acesso ao Sistema</div>
+    </div>
+
+    <!-- TABS -->
+    <div style="display:flex;border-bottom:1px solid var(--border);">
+      <button id="tab-login" onclick="switchTab('login')" style="flex:1;padding:12px;background:transparent;border:none;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid var(--accent);">Entrar</button>
+      <button id="tab-register" onclick="switchTab('register')" style="flex:1;padding:12px;background:transparent;border:none;color:var(--text3);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;">Criar Conta</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="panel-login" class="config-body">
+      <div class="config-field">
+        <label class="config-label">E-mail</label>
+        <input class="config-input" id="login-email" type="email" placeholder="seu@email.com" autocomplete="email">
+      </div>
+      <div class="config-field">
+        <label class="config-label">Senha</label>
+        <input class="config-input" id="login-senha" type="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div class="config-error" id="login-error"></div>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="panel-register" class="config-body" style="display:none;">
+      <div class="config-field">
+        <label class="config-label">Nome completo</label>
+        <input class="config-input" id="reg-nome" type="text" placeholder="Seu nome">
+      </div>
+      <div class="config-field">
+        <label class="config-label">E-mail</label>
+        <input class="config-input" id="reg-email" type="email" placeholder="seu@email.com">
+      </div>
+      <div class="config-field">
+        <label class="config-label">Senha</label>
+        <input class="config-input" id="reg-senha" type="password" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="config-error" id="reg-error"></div>
+    </div>
+
+    <!-- PENDENTE -->
+    <div id="panel-pendente" class="config-body" style="display:none;text-align:center;">
+      <div style="font-size:32px;margin-bottom:12px;">⏳</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px;">Cadastro enviado!</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.6;">Seu acesso está <strong style="color:var(--warn);">pendente de aprovação</strong>.<br>O administrador será notificado e liberará seu acesso em breve.</div>
+    </div>
+
+    <div class="config-footer">
+      <button class="btn btn-accent" id="auth-btn" onclick="handleAuth()" style="justify-content:center;">Entrar</button>
+      <div class="config-hint" id="auth-hint">
+        Sistema de conciliação fiscal NF-e<br>
+        <span style="color:var(--text3);">Santos Solução em Análises Clínicas</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== APP ==================== -->
+<aside class="sidebar" id="app-sidebar" style="display:none">
+  <div class="logo">
+    <div class="logo-mark">NF·ENTRADA</div>
+    <div class="logo-sub">Conciliação Fiscal</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Principal</div>
+    <button class="nav-item active" onclick="navigate('dashboard')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.7"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-item" onclick="navigate('sefaz')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M5 8h6M8 5v6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Monitor SEFAZ
+      <span class="nav-badge" id="sefaz-badge">0</span>
+    </button>
+    <button class="nav-item" onclick="navigate('upload')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Upload XML
+    </button>
+    <div class="nav-section">Gestão</div>
+    <button class="nav-item" onclick="navigate('notas')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M5 5h6M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Notas Fiscais
+      <span class="nav-badge warn" id="pending-badge">0</span>
+    </button>
+    <button class="nav-item" onclick="navigate('cfop')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Regras CFOP
+    </button>
+    <button class="nav-item" onclick="navigate('fornecedores')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.2"/><path d="M2 14c0-3 2.5-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Fornecedores
+    </button>
+    <div class="nav-section">Saída</div>
+    <button class="nav-item" onclick="navigate('relatorios')">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M4 10l3-3 3 3 3-4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Relatórios
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="company-tag">
+      <div class="company-avatar" id="company-avatar">--</div>
+      <div>
+        <div class="company-name" id="company-name">Carregando...</div>
+        <div class="company-cnpj" id="company-cnpj">--</div>
+      </div>
+    </div>
+    <div class="sb-status">
+      <div class="sb-dot on" id="sb-dot"></div>
+      <span class="sb-txt" id="sb-txt">Supabase conectado</span>
+      <button class="btn-xs" style="margin-left:auto;" onclick="disconnect()">Sair</button>
+    </div>
+  </div>
+</aside>
+
+<main class="main" id="app-main" style="display:none">
+  <div class="topbar">
+    <div>
+      <div class="page-title" id="page-title">Dashboard</div>
+      <div class="page-crumb" id="page-crumb">Visão geral</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="syncSefaz()" id="sync-btn">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5A4.5 4.5 0 0110.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11 6.5A4.5 4.5 0 012.5 9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8.5 3l2 0.5-.5 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Sincronizar SEFAZ
+      </button>
+      <button class="btn btn-accent" onclick="navigate('upload')">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v7M3.5 4l3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 11h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Importar XML
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card green"><div class="stat-label">Total Entradas</div><div class="stat-value green" id="stat-total">—</div><div class="stat-sub">Mês atual</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Pendentes</div><div class="stat-value yellow" id="stat-pendentes">—</div><div class="stat-sub">Aguardando confirmação</div></div>
+        <div class="stat-card blue"><div class="stat-label">Notas no Mês</div><div class="stat-value blue" id="stat-notas">—</div><div class="stat-sub" id="stat-notas-sub">Revenda · Consumo</div></div>
+        <div class="stat-card purple"><div class="stat-label">Impostos</div><div class="stat-value purple" id="stat-impostos">—</div><div class="stat-sub">ICMS + PIS + COFINS</div></div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Últimas NF-e</div>
+            <button class="btn btn-ghost" onclick="navigate('notas')" style="font-size:11px;">Ver todas →</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fornecedor</th><th>N°</th><th>CFOP</th><th>Tipo</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+              <tbody id="dash-notas-body"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3);">Carregando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">SEFAZ Pendentes</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div class="sefaz-status-dot"></div>
+              <span style="font-size:11px;color:var(--accent);font-family:'DM Mono',monospace;" id="sefaz-status-label">ONLINE</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="pending-list" id="dash-pending-list">
+              <div style="text-align:center;color:var(--text3);font-size:12px;padding:20px;">Sem pendências</div>
+            </div>
+            <div class="section-divider"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div>
+                <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:4px;">REVENDA</div>
+                <div style="font-size:18px;font-family:'Syne',sans-serif;font-weight:700;color:var(--accent);" id="total-revenda">R$ 0,00</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:4px;">CONSUMO</div>
+                <div style="font-size:18px;font-family:'Syne',sans-serif;font-weight:700;color:var(--info);" id="total-consumo">R$ 0,00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEFAZ -->
+    <div class="view" id="view-sefaz">
+      <div class="sefaz-env-tabs">
+        <button class="env-tab active" onclick="setEnv(this,'producao')">Produção</button>
+        <button class="env-tab" onclick="setEnv(this,'homologacao')">Homologação</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-header"><div class="card-title">Certificado Digital A1</div></div>
+            <div class="card-body">
+              <div class="cert-zone" onclick="toast('Integração com certificado real requer backend Node.js','warn')">
+                <div style="font-size:13px;font-weight:500;margin-bottom:4px;">Certificado .pfx / .p12</div>
+                <div style="font-size:11px;color:var(--text3);">Criptografado com AES-256 no Supabase Vault</div>
+              </div>
+              <div id="cert-status" style="padding:12px;background:var(--accent-dim);border:1px solid rgba(0,229,160,0.2);border-radius:var(--radius);font-size:11px;">
+                <div style="font-family:'DM Mono',monospace;color:var(--accent);">CERTIFICADO — Configure via backend</div>
+                <div style="color:var(--text2);margin-top:4px;" id="cert-empresa-name">Carregando dados da empresa...</div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Parâmetros SEFAZ</div></div>
+            <div class="card-body">
+              <div class="sefaz-config-grid">
+                <div class="field-group">
+                  <label class="field-label">CNPJ DESTINATÁRIO</label>
+                  <input type="text" class="field-input" id="sefaz-cnpj" placeholder="00.000.000/0001-00">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">UF</label>
+                  <select class="field-select" id="sefaz-uf"><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SE</option><option>SP</option><option>TO</option></select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">INTERVALO (HORAS)</label>
+                  <input type="number" class="field-input" id="sefaz-intervalo" value="1" min="1" max="24">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">MANIFESTO AUTO</label>
+                  <select class="field-select" id="sefaz-manifesto">
+                    <option>Ciente da Operação</option>
+                    <option>Desconhecimento</option>
+                    <option>Manual</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;">
+                <button class="btn btn-accent" onclick="saveSefazConfig()" style="flex:1;">Salvar no Supabase</button>
+                <button class="btn" onclick="syncSefaz()">Testar Conexão</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-header">
+              <div class="card-title">Log em Tempo Real</div>
+              <button class="btn btn-ghost" style="font-size:11px;" onclick="document.getElementById('sefaz-log').innerHTML=''">Limpar</button>
+            </div>
+            <div class="card-body" style="padding:12px;">
+              <div class="sefaz-log" id="sefaz-log">
+                <div class="log-line"><span class="log-time">--:--:--</span><span class="log-info">[INFO]</span><span>Aguardando conexão Supabase...</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">NF-e Recebidas SEFAZ</div><span id="sefaz-count" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;"></span></div>
+            <div style="padding:16px;" id="sefaz-nfe-list">
+              <div style="text-align:center;color:var(--text3);font-size:12px;padding:20px;">Nenhuma NF-e pendente</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPLOAD -->
+    <div class="view" id="view-upload">
+      <div class="upload-zone" id="upload-zone"
+        ondragover="handleDragOver(event)" ondragleave="handleDragLeave()" ondrop="handleDrop(event)"
+        onclick="document.getElementById('file-input').click()">
+        <div class="upload-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 7l4-4 4 4" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 18h18" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <div class="upload-title">Arraste os XMLs aqui</div>
+        <div class="upload-sub">Processamento assíncrono com fila · Idempotência por chave NF-e</div>
+        <div class="upload-formats"><span class="format-tag">XML NF-e</span><span class="format-tag">Múltiplos</span><span class="format-tag">Validação Assinatura</span></div>
+        <input type="file" id="file-input" accept=".xml" multiple style="display:none" onchange="handleFileInput(event)">
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Fila de Processamento</div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span id="upload-summary" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;"></span>
+            <button class="btn btn-accent" onclick="simulateUpload()">Simular 5 XMLs</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="upload-progress-list" id="upload-list">
+            <div class="empty-state"><div class="empty-icon">📂</div><div class="empty-text">Arraste os arquivos XML para iniciar</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTAS -->
+    <div class="view" id="view-notas">
+      <div class="filters">
+        <input type="text" class="filter-input" placeholder="Buscar fornecedor ou chave..." style="flex:1;max-width:320px;" id="search-notas" oninput="loadNotas()">
+        <select class="filter-input" id="filter-tipo" onchange="loadNotas()">
+          <option value="">Todos os tipos</option>
+          <option value="Revenda">Revenda</option>
+          <option value="Consumo">Consumo</option>
+        </select>
+        <select class="filter-input" id="filter-status" onchange="loadNotas()">
+          <option value="">Todos os status</option>
+          <option value="Confirmada">Confirmadas</option>
+          <option value="Pendente">Pendentes</option>
+          <option value="Duplicada">Duplicadas</option>
+        </select>
+        <button class="btn" onclick="loadNotas()">
+          <div class="spin" id="notas-spin" style="display:none"></div>
+          Atualizar
+        </button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Notas Fiscais de Entrada</div>
+          <span id="notas-count" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Chave NF-e</th><th>Fornecedor</th><th>N°</th><th>CFOP</th><th>Tipo</th><th>Data</th><th>Valor Bruto</th><th>Impostos</th><th>Status</th><th></th></tr></thead>
+            <tbody id="notas-body"><tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text3);">Carregando do Supabase...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CFOP -->
+    <div class="view" id="view-cfop">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div style="font-size:13px;color:var(--text2);">Regras salvas no Supabase — tabela <span style="color:var(--accent);font-family:'DM Mono',monospace;">cfop_rules</span></div>
+        <button class="btn btn-accent" onclick="openCfopModal()">+ Nova Regra</button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Regras CFOP</div>
+          <span id="cfop-count" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;"></span>
+        </div>
+        <div class="card-body">
+          <div class="cfop-grid" id="cfop-grid"><div style="text-align:center;padding:20px;color:var(--text3);">Carregando...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORNECEDORES -->
+    <div class="view" id="view-fornecedores">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Fornecedores</div>
+          <span id="forn-count" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Razão Social</th><th>CNPJ</th><th>UF</th><th>Status</th><th>Total NFs</th></tr></thead>
+            <tbody id="forn-body"><tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text3);">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RELATÓRIOS -->
+    <div class="view" id="view-relatorios">
+      <div class="report-period">
+        <span class="period-label">PERÍODO</span>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="period-btn" onclick="changePeriod(-1)">‹</button>
+          <div class="period-current" id="period-display">Abril 2025</div>
+          <button class="period-btn" onclick="changePeriod(1)">›</button>
+        </div>
+        <div style="margin-left:auto;">
+          <button class="btn" onclick="loadRelatorio()">
+            <div class="spin" id="rel-spin" style="display:none"></div>
+            Gerar Relatório
+          </button>
+        </div>
+      </div>
+      <div class="report-summary">
+        <div class="summary-card"><div class="summary-label">Total Entradas</div><div class="summary-value" style="color:var(--accent);" id="rel-total">—</div></div>
+        <div class="summary-card"><div class="summary-label">Total Impostos</div><div class="summary-value" style="color:var(--warn);" id="rel-impostos">—</div></div>
+        <div class="summary-card"><div class="summary-label">Notas</div><div class="summary-value" style="color:var(--info);" id="rel-qtd">—</div></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:20px;">
+        <button class="btn" onclick="exportCSV()">⬇ Exportar CSV</button>
+        <button class="btn" onclick="exportJSON()">⬇ Exportar JSON</button>
+        <div style="margin-left:auto;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;align-self:center;" id="rel-hash">Hash SHA-256: —</div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Resumo por CFOP</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>CFOP</th><th>Tipo</th><th>Qtd NFs</th><th>Val. Bruto</th><th>ICMS</th><th>PIS</th><th>COFINS</th></tr></thead>
+            <tbody id="rel-body"><tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3);">Gere o relatório acima</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-nota">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="modal-nota-title">Detalhe NF-e</div><button class="close-btn" onclick="closeModal('modal-nota')">×</button></div>
+    <div class="modal-body" id="modal-nota-body"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-nota')">Fechar</button>
+      <button class="btn btn-accent" id="modal-confirm-btn">Confirmar Entrada</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cfop">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Nova Regra CFOP</div><button class="close-btn" onclick="closeModal('modal-cfop')">×</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="field-group"><label class="field-label">CÓDIGO CFOP</label><input type="text" class="field-input" placeholder="Ex: 1.102" id="new-cfop-code"></div>
+        <div class="field-group"><label class="field-label">DESCRIÇÃO</label><input type="text" class="field-input" placeholder="Ex: Compra para comercialização" id="new-cfop-desc"></div>
+        <div class="field-group"><label class="field-label">TIPO</label>
+          <select class="field-select" id="new-cfop-type"><option>Revenda</option><option>Consumo</option><option>Imobilizado</option><option>PENDENTE_CLASSIFICACAO</option></select>
+        </div>
+        <div class="field-group"><label class="field-label">CONTA CONTÁBIL</label><input type="text" class="field-input" placeholder="Ex: 1.1.3.01" id="new-cfop-conta"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-cfop')">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveCfopRule()">Salvar no Supabase</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ============================================================
+// SUPABASE CLIENT
+// ============================================================
+const { createClient } = supabase;
+let sb = null;
+let EMPRESA_ID = null;
+let realtimeChannel = null;
+let currentPeriodOffset = 0;
+const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+let currentNotaId = null;
+
+// ============================================================
+// CONNECTION
+// ============================================================
+// ============================================================
+// CONFIGURAÇÃO SUPABASE — altere apenas estas duas linhas
+// ============================================================
+const SB_URL = 'https://mlgphuhycaekrevfsvhk.supabase.co';
+const SB_KEY = 'sb_publishable_h-spRqB-Wgpai5Ux1c22VQ_I-7MLuMG';
+// ============================================================
+
+sb = createClient(SB_URL, SB_KEY);
+let currentUser = null;
+
+// Tabs de login/cadastro
+function switchTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('panel-login').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('panel-register').style.display = !isLogin ? 'block' : 'none';
+  document.getElementById('panel-pendente').style.display = 'none';
+  document.getElementById('tab-login').style.color = isLogin ? 'var(--accent)' : 'var(--text3)';
+  document.getElementById('tab-login').style.borderBottom = isLogin ? '2px solid var(--accent)' : '2px solid transparent';
+  document.getElementById('tab-register').style.color = !isLogin ? 'var(--accent)' : 'var(--text3)';
+  document.getElementById('tab-register').style.borderBottom = !isLogin ? '2px solid var(--accent)' : '2px solid transparent';
+  document.getElementById('auth-btn').textContent = isLogin ? 'Entrar' : 'Criar Conta';
+}
+
+function showAuthError(panel, msg) {
+  const el = document.getElementById(panel + '-error');
+  if (el) { el.textContent = msg; el.classList.add('show'); }
+}
+
+async function handleAuth() {
+  const btn = document.getElementById('auth-btn');
+  const isLogin = document.getElementById('panel-login').style.display !== 'none';
+
+  btn.innerHTML = '<div class="spin"></div>';
+  btn.disabled = true;
+
+  try {
+    if (isLogin) {
+      const email = document.getElementById('login-email').value.trim();
+      const senha = document.getElementById('login-senha').value;
+      if (!email || !senha) { showAuthError('login', 'Preencha e-mail e senha'); btn.textContent = 'Entrar'; btn.disabled = false; return; }
+
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+      if (error) { showAuthError('login', 'E-mail ou senha incorretos'); btn.textContent = 'Entrar'; btn.disabled = false; return; }
+
+      // Verificar se está aprovado
+      const { data: usuario } = await sb.from('usuarios').select('*').eq('id', data.user.id).single();
+      if (!usuario || usuario.status === 'pendente') {
+        await sb.auth.signOut();
+        document.getElementById('panel-login').style.display = 'none';
+        document.getElementById('panel-pendente').style.display = 'block';
+        document.getElementById('auth-btn').style.display = 'none';
+        btn.textContent = 'Entrar'; btn.disabled = false; return;
+      }
+      if (usuario.status === 'bloqueado') {
+        await sb.auth.signOut();
+        showAuthError('login', 'Seu acesso foi bloqueado. Contate o administrador.');
+        btn.textContent = 'Entrar'; btn.disabled = false; return;
+      }
+
+      currentUser = { ...data.user, ...usuario };
+      await iniciarApp();
+
+    } else {
+      const nome = document.getElementById('reg-nome').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const senha = document.getElementById('reg-senha').value;
+      if (!nome || !email || !senha) { showAuthError('reg', 'Preencha todos os campos'); btn.textContent = 'Criar Conta'; btn.disabled = false; return; }
+      if (senha.length < 6) { showAuthError('reg', 'Senha deve ter pelo menos 6 caracteres'); btn.textContent = 'Criar Conta'; btn.disabled = false; return; }
+
+      const { data, error } = await sb.auth.signUp({ email, password: senha, options: { data: { nome } } });
+      if (error) { showAuthError('reg', error.message); btn.textContent = 'Criar Conta'; btn.disabled = false; return; }
+
+      document.getElementById('panel-register').style.display = 'none';
+      document.getElementById('panel-pendente').style.display = 'block';
+      document.getElementById('auth-btn').style.display = 'none';
+      document.getElementById('tab-login').style.display = 'none';
+      document.getElementById('tab-register').style.display = 'none';
+    }
+  } catch(e) {
+    showAuthError(isLogin ? 'login' : 'reg', 'Erro: ' + e.message);
+  }
+
+  btn.disabled = false;
+  if (btn.innerHTML.includes('spin')) btn.textContent = isLogin ? 'Entrar' : 'Criar Conta';
+}
+
+async function iniciarApp() {
+  const { data: empresa } = await sb.from('empresas').select('*').limit(1).single();
+  if (!empresa) return;
+  EMPRESA_ID = empresa.id;
+
+  document.getElementById('config-screen').classList.add('hidden');
+  document.getElementById('app-sidebar').style.display = 'flex';
+  document.getElementById('app-main').style.display = 'flex';
+
+  const initials = empresa.razao_social.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  document.getElementById('company-avatar').textContent = initials;
+  document.getElementById('company-name').textContent = empresa.razao_social;
+  const cnpj = empresa.cnpj;
+  document.getElementById('company-cnpj').textContent = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+  document.getElementById('cert-empresa-name').textContent = empresa.razao_social + ' · ' + empresa.regime_tributario;
+  document.getElementById('sefaz-cnpj').value = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+
+  // Mostrar nome do usuário logado
+  if (currentUser) {
+    document.getElementById('company-name').textContent = currentUser.nome || currentUser.email;
+    document.getElementById('company-cnpj').textContent = empresa.razao_social;
+  }
+
+  addLog('ok', 'Conectado como: ' + (currentUser?.nome || currentUser?.email || 'usuário'));
+  addLog('info', 'Realtime habilitado para notas_fiscais');
+
+  // Mostrar menu admin se for admin
+  if (currentUser?.perfil === 'admin') {
+    const navU = document.getElementById('nav-usuarios');
+    if (navU) navU.style.display = 'flex';
+    loadUsuariosBadge();
+  }
+
+  setupRealtime();
+  loadDashboard();
+  loadSefazConfig();
+}
+
+function disconnect() {
+  if (realtimeChannel) sb.removeChannel(realtimeChannel);
+  sb.auth.signOut();
+  currentUser = null;
+  EMPRESA_ID = null;
+  document.getElementById('config-screen').classList.remove('hidden');
+  document.getElementById('app-sidebar').style.display = 'none';
+  document.getElementById('app-main').style.display = 'none';
+  document.getElementById('auth-btn').style.display = 'flex';
+  document.getElementById('auth-btn').textContent = 'Entrar';
+  document.getElementById('auth-btn').disabled = false;
+  document.getElementById('tab-login').style.display = 'flex';
+  document.getElementById('tab-register').style.display = 'flex';
+  switchTab('login');
+}
+
+// Auto-login se já tiver sessão ativa
+window.addEventListener('load', async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    const { data: usuario } = await sb.from('usuarios').select('*').eq('id', session.user.id).single();
+    if (usuario && usuario.status === 'ativo') {
+      currentUser = { ...session.user, ...usuario };
+      await iniciarApp();
+    } else {
+      await sb.auth.signOut();
+    }
+  }
+});
+
+// ============================================================
+// REALTIME — escuta notas_fiscais ao vivo
+// ============================================================
+function setupRealtime() {
+  realtimeChannel = sb.channel('nfe-realtime')
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'notas_fiscais',
+      filter: `empresa_id=eq.${EMPRESA_ID}`
+    }, (payload) => {
+      const nf = payload.new;
+      toast(`Nova NF-e via SEFAZ: ${nf.numero_nf || '—'} · R$ ${fmtBRL(nf.valor_bruto)}`, 'info');
+      addLog('ok', `Realtime: NF-e ${nf.chave_nfe?.substring(0,20)}... recebida`);
+      loadDashboard();
+      updateBadges();
+    })
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'notas_fiscais',
+      filter: `empresa_id=eq.${EMPRESA_ID}`
+    }, () => { loadDashboard(); updateBadges(); })
+    .subscribe((status) => {
+      const dot = document.getElementById('sb-dot');
+      const txt = document.getElementById('sb-txt');
+      if (status === 'SUBSCRIBED') {
+        dot.className = 'sb-dot on';
+        txt.textContent = 'Realtime ativo';
+        addLog('ok', 'Realtime subscribed · WebSocket aberto');
+      } else if (status === 'CLOSED') {
+        dot.className = 'sb-dot off';
+        txt.textContent = 'Realtime offline';
+      }
+    });
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+// ============================================================
+// USUARIOS — aprovação
+// ============================================================
+async function loadUsuarios() {
+  if (!sb || !EMPRESA_ID) return;
+  const { data } = await sb.from('usuarios').select('*').order('created_at', { ascending: false });
+  if (!data) return;
+
+  const pendentes = data.filter(u => u.status === 'pendente');
+  const todos = data;
+
+  document.getElementById('pendentes-count').textContent = pendentes.length + ' pendentes';
+  document.getElementById('todos-count').textContent = todos.length + ' usuários';
+
+  // Badge no nav
+  const badge = document.getElementById('usuarios-badge');
+  if (pendentes.length > 0) {
+    badge.textContent = pendentes.length;
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // Tabela pendentes
+  const tbodyP = document.getElementById('usuarios-pendentes-body');
+  if (!pendentes.length) {
+    tbodyP.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text3);">Nenhum usuário pendente</td></tr>';
+  } else {
+    tbodyP.innerHTML = pendentes.map(u => `
+      <tr>
+        <td style="font-size:12px;font-weight:500;">${u.nome}</td>
+        <td class="td-mono">${u.email}</td>
+        <td class="td-mono">${u.created_at?.substring(0,10) || '—'}</td>
+        <td><span class="badge badge-yellow">Pendente</span></td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn-xs confirm" onclick="aprovarUsuario('${u.id}','${u.nome}')">✓ Aprovar</button>
+          <button class="btn-xs" style="color:var(--danger);border-color:rgba(239,68,68,0.3);" onclick="bloquearUsuario('${u.id}','${u.nome}')">✕ Rejeitar</button>
+        </td>
+      </tr>`).join('');
+  }
+
+  // Tabela todos
+  const tbodyT = document.getElementById('usuarios-todos-body');
+  tbodyT.innerHTML = todos.map(u => `
+    <tr>
+      <td style="font-size:12px;font-weight:500;">${u.nome}</td>
+      <td class="td-mono">${u.email}</td>
+      <td>${u.perfil === 'admin' ? '<span class="badge badge-purple">Admin</span>' : '<span class="badge badge-blue">Operador</span>'}</td>
+      <td>${statusUsuarioBadge(u.status)}</td>
+      <td class="td-mono">${u.aprovado_em?.substring(0,10) || '—'}</td>
+      <td style="display:flex;gap:6px;">
+        ${u.status === 'ativo' ? `<button class="btn-xs" onclick="bloquearUsuario('${u.id}','${u.nome}')">Bloquear</button>` : ''}
+        ${u.status === 'bloqueado' ? `<button class="btn-xs confirm" onclick="aprovarUsuario('${u.id}','${u.nome}')">Reativar</button>` : ''}
+        ${u.status === 'pendente' ? `<button class="btn-xs confirm" onclick="aprovarUsuario('${u.id}','${u.nome}')">Aprovar</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+function statusUsuarioBadge(s) {
+  const map = { ativo:'badge-green', pendente:'badge-yellow', bloqueado:'badge-red' };
+  return `<span class="badge ${map[s]||'badge-blue'}">${s}</span>`;
+}
+
+async function aprovarUsuario(id, nome) {
+  if (!sb) return;
+  const { error } = await sb.from('usuarios').update({
+    status: 'ativo',
+    aprovado_por: currentUser?.id,
+    aprovado_em: new Date().toISOString()
+  }).eq('id', id);
+  if (error) { toast('Erro: ' + error.message, 'err'); return; }
+  toast(nome + ' aprovado com sucesso!', 'ok');
+  loadUsuarios();
+}
+
+async function bloquearUsuario(id, nome) {
+  if (!sb) return;
+  const { error } = await sb.from('usuarios').update({ status: 'bloqueado' }).eq('id', id);
+  if (error) { toast('Erro: ' + error.message, 'err'); return; }
+  toast(nome + ' bloqueado', 'warn');
+  loadUsuarios();
+}
+
+function navigate(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const titles = { dashboard:'Dashboard', sefaz:'Monitor SEFAZ', upload:'Upload XML', notas:'Notas Fiscais', cfop:'Regras CFOP', fornecedores:'Fornecedores', relatorios:'Relatórios', usuarios:'Gestão de Usuários', config:'Configurações' };
+  const crumbs = { dashboard:'Visão geral em tempo real', sefaz:'Comunicação SEFAZ + Realtime', upload:'Importação em massa com fila', notas:'Todas as NF-e · Supabase', cfop:'Tabela de inteligência fiscal', fornecedores:'Base de fornecedores', relatorios:'Exportação para contabilidade', usuarios:'Aprovação e controle de acesso', config:'Parâmetros do sistema' };
+  document.getElementById('page-title').textContent = titles[view] || view;
+  document.getElementById('page-crumb').textContent = crumbs[view] || '';
+  document.querySelectorAll('.nav-item').forEach(b => {
+    if (b.getAttribute('onclick')?.includes("'"+view+"'")) b.classList.add('active');
+  });
+  if (view === 'notas') loadNotas();
+  if (view === 'cfop') loadCfop();
+  if (view === 'fornecedores') loadFornecedores();
+  if (view === 'usuarios') loadUsuarios();
+}
+
+// ============================================================
+// LOAD DATA
+// ============================================================
+async function loadDashboard() {
+  if (!sb || !EMPRESA_ID) return;
+  try {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    const { data: notas } = await sb.from('notas_fiscais')
+      .select('*')
+      .eq('empresa_id', EMPRESA_ID)
+      .gte('data_emissao', firstDay.split('T')[0])
+      .order('created_at', { ascending: false });
+
+    if (!notas) return;
+
+    const total = notas.reduce((s, n) => s + (n.valor_bruto || 0), 0);
+    const impostos = notas.reduce((s, n) => s + (n.valor_icms || 0) + (n.valor_pis || 0) + (n.valor_cofins || 0), 0);
+    const pendentes = notas.filter(n => n.status === 'Pendente').length;
+    const revenda = notas.filter(n => n.tipo === 'Revenda').reduce((s, n) => s + (n.valor_bruto || 0), 0);
+    const consumo = notas.filter(n => n.tipo === 'Consumo').reduce((s, n) => s + (n.valor_bruto || 0), 0);
+    const qtdRevenda = notas.filter(n => n.tipo === 'Revenda').length;
+    const qtdConsumo = notas.filter(n => n.tipo === 'Consumo').length;
+
+    document.getElementById('stat-total').textContent = 'R$ ' + fmtBRL(total);
+    document.getElementById('stat-pendentes').textContent = pendentes;
+    document.getElementById('stat-notas').textContent = notas.length;
+    document.getElementById('stat-notas-sub').textContent = `${qtdRevenda} Revenda · ${qtdConsumo} Consumo`;
+    document.getElementById('stat-impostos').textContent = 'R$ ' + fmtBRL(impostos);
+    document.getElementById('total-revenda').textContent = 'R$ ' + fmtBRL(revenda);
+    document.getElementById('total-consumo').textContent = 'R$ ' + fmtBRL(consumo);
+
+    // Últimas 5 notas
+    const tbody = document.getElementById('dash-notas-body');
+    if (notas.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3);">Nenhuma NF-e no mês</td></tr>';
+    } else {
+      tbody.innerHTML = notas.slice(0, 5).map(n => `
+        <tr>
+          <td style="font-size:12px;font-weight:500;">${n.fornecedor_id ? '...' : '—'}</td>
+          <td class="td-mono">${n.numero_nf || '—'}</td>
+          <td class="td-mono" style="color:var(--accent);">${n.cfop || '—'}</td>
+          <td>${tipoBadge(n.tipo)}</td>
+          <td class="td-value">R$ ${fmtBRL(n.valor_bruto)}</td>
+          <td>${statusBadge(n.status)}</td>
+          <td><button class="btn-xs" onclick="openNota('${n.id}')">Ver</button></td>
+        </tr>`).join('');
+      // Carregar nomes dos fornecedores separadamente
+      loadFornecedorNames(notas.slice(0,5), 'dash-notas-body');
+    }
+
+    // Pending SEFAZ (origem='SEFAZ' e status='Pendente')
+    const pendSefaz = notas.filter(n => n.origem === 'SEFAZ' && n.status === 'Pendente');
+    renderPendingList(pendSefaz, 'dash-pending-list');
+    document.getElementById('sefaz-badge').textContent = pendSefaz.length;
+    document.getElementById('pending-badge').textContent = pendentes;
+
+  } catch(e) { console.error(e); }
+}
+
+async function loadFornecedorNames(notas, tbodyId) {
+  const ids = [...new Set(notas.map(n => n.fornecedor_id).filter(Boolean))];
+  if (!ids.length) return;
+  const { data } = await sb.from('fornecedores').select('id,razao_social').in('id', ids);
+  if (!data) return;
+  const map = {};
+  data.forEach(f => map[f.id] = f.razao_social);
+  const rows = document.getElementById(tbodyId)?.querySelectorAll('tr');
+  notas.slice(0,5).forEach((n, i) => {
+    if (rows && rows[i]) {
+      const td = rows[i].querySelector('td');
+      if (td) td.textContent = map[n.fornecedor_id] || '—';
+    }
+  });
+}
+
+async function loadNotas() {
+  if (!sb || !EMPRESA_ID) return;
+  document.getElementById('notas-spin').style.display = 'inline-block';
+  const search = document.getElementById('search-notas').value.trim();
+  const tipo = document.getElementById('filter-tipo').value;
+  const status = document.getElementById('filter-status').value;
+
+  try {
+    let q = sb.from('notas_fiscais')
+      .select('*, fornecedores(razao_social)')
+      .eq('empresa_id', EMPRESA_ID)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (tipo) q = q.eq('tipo', tipo);
+    if (status) q = q.eq('status', status);
+    if (search) q = q.or(`chave_nfe.ilike.%${search}%,numero_nf.ilike.%${search}%`);
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    document.getElementById('notas-count').textContent = (data?.length || 0) + ' notas';
+    const tbody = document.getElementById('notas-body');
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text3);">Nenhuma nota encontrada</td></tr>';
+    } else {
+      tbody.innerHTML = data.map(n => `
+        <tr>
+          <td><span class="nfe-key">${(n.chave_nfe||'').substring(0,22)}...</span></td>
+          <td style="font-size:12px;font-weight:500;">${n.fornecedores?.razao_social || '—'}</td>
+          <td class="td-mono">${n.numero_nf || '—'}</td>
+          <td class="td-mono" style="color:var(--accent);">${n.cfop || '—'}</td>
+          <td>${tipoBadge(n.tipo)}</td>
+          <td class="td-mono">${n.data_emissao || '—'}</td>
+          <td class="td-value">R$ ${fmtBRL(n.valor_bruto)}</td>
+          <td class="td-mono" style="color:var(--warn);">R$ ${fmtBRL((n.valor_icms||0)+(n.valor_pis||0)+(n.valor_cofins||0))}</td>
+          <td>${statusBadge(n.status)}</td>
+          <td style="display:flex;gap:4px;">
+            <button class="btn-xs" onclick="openNota('${n.id}')">Ver</button>
+            ${n.status==='Pendente'?`<button class="btn-xs confirm" onclick="confirmNotaDB('${n.id}')">✓</button>`:''}
+          </td>
+        </tr>`).join('');
+    }
+  } catch(e) {
+    toast('Erro ao carregar notas: ' + e.message, 'err');
+  } finally {
+    document.getElementById('notas-spin').style.display = 'none';
+  }
+}
+
+async function loadCfop() {
+  if (!sb || !EMPRESA_ID) return;
+  const { data } = await sb.from('cfop_rules').select('*').eq('empresa_id', EMPRESA_ID).order('cfop');
+  document.getElementById('cfop-count').textContent = (data?.length || 0) + ' regras';
+  const grid = document.getElementById('cfop-grid');
+  if (!data || !data.length) { grid.innerHTML = '<div style="color:var(--text3);text-align:center;padding:20px;">Nenhuma regra cadastrada</div>'; return; }
+  grid.innerHTML = data.map(r => `
+    <div class="cfop-item">
+      <div class="cfop-code">${r.cfop}</div>
+      <div class="cfop-desc">
+        <div class="cfop-name">${r.descricao}</div>
+        <div class="cfop-type">Conta: ${r.conta_contabil || '—'}</div>
+      </div>
+      ${tipoBadge(r.tipo)}
+      <button class="btn-xs" onclick="deleteCfop('${r.id}','${r.cfop}')">✕</button>
+    </div>`).join('');
+}
+
+async function loadFornecedores() {
+  if (!sb || !EMPRESA_ID) return;
+  const { data } = await sb.from('fornecedores').select('*').eq('empresa_id', EMPRESA_ID).order('razao_social');
+  document.getElementById('forn-count').textContent = (data?.length || 0) + ' fornecedores';
+  const tbody = document.getElementById('forn-body');
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text3);">Nenhum fornecedor</td></tr>'; return; }
+  tbody.innerHTML = data.map(f => `
+    <tr>
+      <td style="font-size:12px;font-weight:500;">${f.razao_social}</td>
+      <td class="td-mono">${f.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5')}</td>
+      <td class="td-mono">${f.uf || '—'}</td>
+      <td>${f.status_receita==='Ativa'?'<span class="badge badge-green">Ativa</span>':'<span class="badge badge-red">Baixada</span>'}</td>
+      <td class="td-mono">—</td>
+    </tr>`).join('');
+}
+
+async function loadSefazConfig() {
+  if (!sb || !EMPRESA_ID) return;
+  const { data } = await sb.from('sefaz_config').select('*').eq('empresa_id', EMPRESA_ID).maybeSingle();
+  if (data) {
+    if (data.uf) document.getElementById('sefaz-uf').value = data.uf;
+    if (data.intervalo_horas) document.getElementById('sefaz-intervalo').value = data.intervalo_horas;
+    if (data.manifesto_auto) document.getElementById('sefaz-manifesto').value = data.manifesto_auto;
+    addLog('ok', 'Configuração SEFAZ carregada do Supabase');
+  }
+}
+
+async function loadRelatorio() {
+  if (!sb || !EMPRESA_ID) return;
+  document.getElementById('rel-spin').style.display = 'inline-block';
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + currentPeriodOffset, 1);
+  const firstDay = d.toISOString().split('T')[0];
+  const lastDay = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
+
+  try {
+    const { data } = await sb.from('notas_fiscais').select('*')
+      .eq('empresa_id', EMPRESA_ID)
+      .gte('data_emissao', firstDay).lte('data_emissao', lastDay);
+
+    if (!data) return;
+    const total = data.reduce((s,n)=>s+(n.valor_bruto||0),0);
+    const imp = data.reduce((s,n)=>s+(n.valor_icms||0)+(n.valor_pis||0)+(n.valor_cofins||0),0);
+    document.getElementById('rel-total').textContent = 'R$ ' + fmtBRL(total);
+    document.getElementById('rel-impostos').textContent = 'R$ ' + fmtBRL(imp);
+    document.getElementById('rel-qtd').textContent = data.length;
+
+    // Agrupar por CFOP
+    const byCfop = {};
+    data.forEach(n => {
+      if (!byCfop[n.cfop]) byCfop[n.cfop] = { tipo: n.tipo, qtd:0, bruto:0, icms:0, pis:0, cofins:0 };
+      byCfop[n.cfop].qtd++;
+      byCfop[n.cfop].bruto += n.valor_bruto||0;
+      byCfop[n.cfop].icms += n.valor_icms||0;
+      byCfop[n.cfop].pis += n.valor_pis||0;
+      byCfop[n.cfop].cofins += n.valor_cofins||0;
+    });
+    const tbody = document.getElementById('rel-body');
+    if (!Object.keys(byCfop).length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3);">Nenhuma nota no período</td></tr>';
+    } else {
+      tbody.innerHTML = Object.entries(byCfop).map(([cfop, v]) => `
+        <tr>
+          <td class="td-mono" style="color:var(--accent);">${cfop}</td>
+          <td>${tipoBadge(v.tipo)}</td>
+          <td class="td-mono">${v.qtd}</td>
+          <td class="td-value">R$ ${fmtBRL(v.bruto)}</td>
+          <td class="td-mono" style="color:var(--warn);">R$ ${fmtBRL(v.icms)}</td>
+          <td class="td-mono" style="color:var(--info);">R$ ${fmtBRL(v.pis)}</td>
+          <td class="td-mono" style="color:var(--info);">R$ ${fmtBRL(v.cofins)}</td>
+        </tr>`).join('');
+    }
+    // Hash simples para integridade
+    const hash = btoa(JSON.stringify({total, imp, qtd: data.length, period: firstDay})).substring(0,32);
+    document.getElementById('rel-hash').textContent = 'Hash: ' + hash + '...';
+    window._relData = data;
+  } catch(e) { toast('Erro: '+e.message,'err'); }
+  finally { document.getElementById('rel-spin').style.display = 'none'; }
+}
+
+// ============================================================
+// ACTIONS — DB
+// ============================================================
+async function openNota(id) {
+  if (!sb) return;
+  currentNotaId = id;
+  const { data: n } = await sb.from('notas_fiscais')
+    .select('*, fornecedores(razao_social, cnpj)')
+    .eq('id', id).single();
+  if (!n) return;
+
+  document.getElementById('modal-nota-title').textContent = `NF-e #${n.numero_nf || '—'} · ${n.fornecedores?.razao_social || '—'}`;
+  document.getElementById('modal-nota-body').innerHTML = `
+    <div class="detail-row"><div class="detail-label">Chave NF-e</div><div class="detail-value"><span class="nfe-key">${n.chave_nfe}</span></div></div>
+    <div class="detail-row"><div class="detail-label">Fornecedor</div><div class="detail-value">${n.fornecedores?.razao_social||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">CNPJ Fornecedor</div><div class="detail-value td-mono">${n.fornecedores?.cnpj||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Número NF / Série</div><div class="detail-value td-mono">${n.numero_nf||'—'} / ${n.serie||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">CFOP</div><div class="detail-value"><span style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:600;">${n.cfop||'—'}</span></div></div>
+    <div class="detail-row"><div class="detail-label">Classificação</div><div class="detail-value">${tipoBadge(n.tipo)}</div></div>
+    <div class="detail-row"><div class="detail-label">Data de Emissão</div><div class="detail-value td-mono">${n.data_emissao||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Valor Bruto</div><div class="detail-value" style="font-weight:600;">R$ ${fmtBRL(n.valor_bruto)}</div></div>
+    <div class="detail-row"><div class="detail-label">Desconto</div><div class="detail-value">R$ ${fmtBRL(n.valor_desconto)}</div></div>
+    <div class="detail-row"><div class="detail-label">ICMS</div><div class="detail-value" style="color:var(--warn);">R$ ${fmtBRL(n.valor_icms)}</div></div>
+    <div class="detail-row"><div class="detail-label">PIS</div><div class="detail-value" style="color:var(--info);">R$ ${fmtBRL(n.valor_pis)}</div></div>
+    <div class="detail-row"><div class="detail-label">COFINS</div><div class="detail-value" style="color:var(--info);">R$ ${fmtBRL(n.valor_cofins)}</div></div>
+    <div class="detail-row"><div class="detail-label">Origem</div><div class="detail-value">${n.origem==='SEFAZ'?'<span class="badge badge-purple">SEFAZ</span>':'<span class="badge badge-blue">Upload</span>'}</div></div>
+    <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value">${statusBadge(n.status)}</div></div>
+    <div class="detail-row"><div class="detail-label">Hash SHA-256</div><div class="detail-value td-mono" style="font-size:10px;color:var(--text3);">${n.hash_sha256||'—'}</div></div>
+    <div class="detail-row"><div class="detail-label">Registrado em</div><div class="detail-value td-mono" style="font-size:10px;">${n.created_at?.replace('T',' ').substring(0,19)||'—'}</div></div>
+  `;
+  const confirmBtn = document.getElementById('modal-confirm-btn');
+  confirmBtn.style.display = n.status === 'Pendente' ? 'flex' : 'none';
+  confirmBtn.onclick = () => confirmNotaDB(id);
+  openModal('modal-nota');
+}
+
+async function confirmNotaDB(id) {
+  if (!sb) return;
+  const { error } = await sb.from('notas_fiscais').update({
+    status: 'Confirmada',
+    confirmed_at: new Date().toISOString()
+  }).eq('id', id);
+
+  if (error) { toast('Erro ao confirmar: ' + error.message, 'err'); return; }
+
+  // Auditoria
+  await sb.from('audit_log').insert({
+    empresa_id: EMPRESA_ID,
+    acao: 'CONFIRMAR_NF',
+    tabela: 'notas_fiscais',
+    registro_id: id,
+    detalhe: { timestamp: new Date().toISOString() }
+  });
+
+  closeModal('modal-nota');
+  toast('NF-e confirmada e auditada', 'ok');
+  addLog('ok', `NF-e ${id.substring(0,8)}... confirmada · Auditoria registrada`);
+  loadNotas();
+  loadDashboard();
+  updateBadges();
+}
+
+async function saveSefazConfig() {
+  if (!sb || !EMPRESA_ID) return;
+  const config = {
+    empresa_id: EMPRESA_ID,
+    uf: document.getElementById('sefaz-uf').value,
+    intervalo_horas: parseInt(document.getElementById('sefaz-intervalo').value),
+    manifesto_auto: document.getElementById('sefaz-manifesto').value,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await sb.from('sefaz_config').upsert(config, { onConflict: 'empresa_id' });
+  if (error) { toast('Erro ao salvar: ' + error.message, 'err'); return; }
+  toast('Configuração SEFAZ salva no Supabase', 'ok');
+  addLog('ok', 'Config SEFAZ atualizada · UF: ' + config.uf);
+}
+
+async function saveCfopRule() {
+  if (!sb || !EMPRESA_ID) return;
+  const code = document.getElementById('new-cfop-code').value.trim();
+  const desc = document.getElementById('new-cfop-desc').value.trim();
+  const tipo = document.getElementById('new-cfop-type').value;
+  const conta = document.getElementById('new-cfop-conta').value.trim();
+  if (!code || !desc) { toast('Preencha código e descrição', 'warn'); return; }
+
+  const { error } = await sb.from('cfop_rules').insert({
+    empresa_id: EMPRESA_ID, cfop: code, descricao: desc, tipo, conta_contabil: conta || null
+  });
+  if (error) {
+    if (error.code === '23505') toast('CFOP ' + code + ' já cadastrado', 'warn');
+    else toast('Erro: ' + error.message, 'err');
+    return;
+  }
+  closeModal('modal-cfop');
+  toast('Regra CFOP ' + code + ' salva no Supabase', 'ok');
+  document.getElementById('new-cfop-code').value = '';
+  document.getElementById('new-cfop-desc').value = '';
+  document.getElementById('new-cfop-conta').value = '';
+  loadCfop();
+}
+
+async function deleteCfop(id, code) {
+  if (!sb) return;
+  const { error } = await sb.from('cfop_rules').delete().eq('id', id);
+  if (error) { toast('Erro: ' + error.message, 'err'); return; }
+  toast('Regra CFOP ' + code + ' removida', 'warn');
+  loadCfop();
+}
+
+async function loadUsuariosBadge() {
+  if (!sb) return;
+  const { count } = await sb.from('usuarios').select('*', { count:'exact', head:true }).eq('status','pendente');
+  const badge = document.getElementById('usuarios-badge');
+  if (badge) {
+    if (count > 0) { badge.textContent = count; badge.style.display = 'inline-flex'; }
+    else badge.style.display = 'none';
+  }
+}
+
+async function updateBadges() {
+  if (!sb || !EMPRESA_ID) return;
+  const { count } = await sb.from('notas_fiscais').select('*', { count:'exact', head:true })
+    .eq('empresa_id', EMPRESA_ID).eq('status', 'Pendente');
+  document.getElementById('pending-badge').textContent = count || 0;
+}
+
+// ============================================================
+// SEFAZ SYNC — backend real Railway
+// ============================================================
+const BACKEND_URL = 'https://nf-backend-production.up.railway.app';
+
+async function syncSefaz() {
+  const btn = document.getElementById('sync-btn');
+  btn.innerHTML = '<div class="spin"></div> Sincronizando...';
+  btn.disabled = true;
+  addLog('info', 'Sincronização manual iniciada — backend Railway com certificado real');
+  toast('Consultando SEFAZ com certificado real...', 'info');
+
+  try {
+    const response = await fetch(BACKEND_URL + '/api/sefaz/sincronizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await response.json();
+    if (data.sucesso) {
+      addLog('ok', 'SEFAZ consultada · ' + data.processadas + ' NF-e processadas · ' + data.erros + ' erros');
+      toast('Sincronização concluída · ' + data.processadas + ' nota(s) recebida(s)', 'ok');
+      loadDashboard();
+      updateBadges();
+    } else {
+      addLog('err', 'Erro SEFAZ: ' + (data.erro || 'Erro desconhecido'));
+      toast('Erro: ' + (data.erro || 'Verifique o certificado'), 'err');
+    }
+  } catch (e) {
+    addLog('err', 'Erro ao chamar backend: ' + e.message);
+    toast('Erro ao conectar com o backend Railway', 'err');
+  }
+
+  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5A4.5 4.5 0 0110.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11 6.5A4.5 4.5 0 012.5 9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M8.5 3l2 0.5-.5 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg> Sincronizar SEFAZ`;
+  btn.disabled = false;
+}
+
+// ============================================================
+// UPLOAD / XML PROCESSING
+// ============================================================
+async function processXmlText(xmlText, filename) {
+  // Parser NF-e — extrai campos do XML
+  const get = (tag) => {
+    const m = xmlText.match(new RegExp(`<${tag}[^>]*>([^<]+)<\/${tag}>`));
+    return m ? m[1].trim() : null;
+  };
+
+  // Extrai valor de dentro de uma seção específica do XML
+  const getInSection = (section, tag) => {
+    const sectionMatch = xmlText.match(new RegExp(`<${section}[^>]*>([\s\S]*?)<\/${section}>`));
+    if (!sectionMatch) return null;
+    const m = sectionMatch[1].match(new RegExp(`<${tag}[^>]*>([^<]+)<\/${tag}>`));
+    return m ? m[1].trim() : null;
+  };
+
+  const chave = xmlText.match(/Id="NFe(\d{44})"/)?.[1] || null;
+  if (!chave) return { status:'err', detail:'Chave NF-e não encontrada no XML' };
+
+  // Pegar valores do ICMSTot (totais da nota, não dos itens)
+  const vNF = parseFloat(getInSection('ICMSTot', 'vNF') || get('vNF') || '0');
+  const vDesc = parseFloat(getInSection('ICMSTot', 'vDesc') || '0');
+  const vICMS = parseFloat(getInSection('ICMSTot', 'vICMS') || '0');
+  const vPIS = parseFloat(getInSection('ICMSTot', 'vPIS') || '0');
+  const vCOFINS = parseFloat(getInSection('ICMSTot', 'vCOFINS') || '0');
+  const vIPI = parseFloat(getInSection('ICMSTot', 'vIPI') || '0');
+  const vST = parseFloat(getInSection('ICMSTot', 'vST') || '0');
+
+  // CFOP mais frequente entre os itens
+  const cfops = [...xmlText.matchAll(/<CFOP>(\d+)<\/CFOP>/g)].map(m => m[1]);
+  const cfopCount = {};
+  cfops.forEach(c => cfopCount[c] = (cfopCount[c] || 0) + 1);
+  const cfopRaw = Object.keys(cfopCount).sort((a,b) => cfopCount[b]-cfopCount[a])[0] || '';
+  const cfop = cfopRaw.length === 4 ? `${cfopRaw[0]}.${cfopRaw.slice(1)}` : cfopRaw;
+
+  const nf = {
+    empresa_id: EMPRESA_ID,
+    chave_nfe: chave,
+    numero_nf: get('nNF'),
+    serie: get('serie'),
+    cfop: cfop,
+    data_emissao: get('dhEmi')?.substring(0,10) || get('dEmi'),
+    valor_bruto: vNF,
+    valor_desconto: vDesc,
+    valor_icms: vICMS,
+    valor_pis: vPIS,
+    valor_cofins: vCOFINS,
+    valor_ipi: vIPI,
+    valor_st: vST,
+    status: 'Pendente',
+    origem: 'Upload',
+    hash_sha256: null
+  };
+
+  // Fornecedor
+  const cnpjForn = get('CNPJ');
+  if (cnpjForn && sb && EMPRESA_ID) {
+    const { data: fExists } = await sb.from('fornecedores')
+      .select('id').eq('empresa_id', EMPRESA_ID).eq('cnpj', cnpjForn).maybeSingle();
+    if (fExists) {
+      nf.fornecedor_id = fExists.id;
+    } else {
+      const razao = get('xNome') || 'Fornecedor importado';
+      const uf = get('UF');
+      const { data: newF } = await sb.from('fornecedores').insert({
+        empresa_id: EMPRESA_ID, cnpj: cnpjForn, razao_social: razao, uf
+      }).select('id').single();
+      if (newF) nf.fornecedor_id = newF.id;
+    }
+  }
+
+  // Classificação por CFOP
+  if (nf.cfop && sb) {
+    const cfopNorm = nf.cfop.replace(/^(\d)(\d{3})$/, '$1.$2');
+    const { data: rules } = await sb.from('cfop_rules').select('tipo').eq('empresa_id', EMPRESA_ID).eq('cfop', cfopNorm).maybeSingle();
+    nf.tipo = rules?.tipo || 'PENDENTE_CLASSIFICACAO';
+    if (cfopNorm) nf.cfop = cfopNorm;
+  } else {
+    nf.tipo = 'PENDENTE_CLASSIFICACAO';
+  }
+
+  // Inserir com idempotência (unique chave_nfe)
+  const { error } = await sb.from('notas_fiscais').insert(nf);
+  if (error) {
+    if (error.code === '23505') return { status:'dup', detail:'Duplicada — chave já processada (idempotência)' };
+    return { status:'err', detail: error.message };
+  }
+
+  await sb.from('audit_log').insert({
+    empresa_id: EMPRESA_ID, acao: 'UPLOAD_NF', tabela: 'notas_fiscais',
+    detalhe: { chave_nfe: chave, cfop: nf.cfop, tipo: nf.tipo }
+  });
+
+  return { status:'ok', detail:`CFOP ${nf.cfop} · ${nf.tipo} · R$ ${fmtBRL(nf.valor_bruto)}` };
+}
+
+async function processFiles(files) {
+  const list = document.getElementById('upload-list');
+  list.innerHTML = '';
+  document.getElementById('upload-summary').textContent = '';
+  let ok=0, dup=0, err=0;
+
+  for (let i=0; i<files.length; i++) {
+    const f = files[i];
+    const item = document.createElement('div');
+    item.className = 'upload-item';
+    item.innerHTML = `
+      <div class="upload-item-icon icon-xml">XML</div>
+      <div class="upload-item-info">
+        <div class="upload-item-name">${f.name}</div>
+        <div class="upload-item-detail" id="det-${i}">Processando...</div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill fill-blue" id="fill-${i}" style="width:30%"></div></div>
+      <div class="upload-status" id="st-${i}" style="color:var(--info);">...</div>`;
+    list.appendChild(item);
+
+    const text = await f.text();
+    const result = await processXmlText(text, f.name);
+
+    const icon = item.querySelector('.upload-item-icon');
+    const det = document.getElementById('det-'+i);
+    const fill = document.getElementById('fill-'+i);
+    const st = document.getElementById('st-'+i);
+
+    det.textContent = result.detail;
+    if (result.status==='ok') {
+      icon.className='upload-item-icon icon-ok'; icon.textContent='✓';
+      fill.className='progress-fill fill-green'; fill.style.width='100%';
+      det.style.color='var(--text2)'; st.textContent='OK'; st.style.color='var(--accent)';
+      ok++;
+    } else if (result.status==='dup') {
+      icon.className='upload-item-icon icon-dup'; icon.textContent='!';
+      fill.className='progress-fill fill-yellow'; fill.style.width='100%';
+      det.style.color='var(--warn)'; st.textContent='DUP'; st.style.color='var(--warn)';
+      dup++;
+    } else {
+      icon.className='upload-item-icon icon-err'; icon.textContent='✗';
+      fill.className='progress-fill fill-red'; fill.style.width='100%';
+      det.style.color='var(--danger)'; st.textContent='ERRO'; st.style.color='var(--danger)';
+      err++;
+    }
+  }
+
+  document.getElementById('upload-summary').textContent = `${ok} OK · ${dup} dup · ${err} erros`;
+  toast(`${ok} nota(s) salvas no Supabase · ${dup} duplicadas · ${err} erros`, ok > 0 ? 'ok' : 'warn');
+  addLog('ok', `Upload: ${ok} inseridas · ${dup} duplicadas · ${err} erros`);
+  loadDashboard();
+  updateBadges();
+}
+
+function handleDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('dragover'); }
+function handleDragLeave() { document.getElementById('upload-zone').classList.remove('dragover'); }
+function handleDrop(e) { e.preventDefault(); document.getElementById('upload-zone').classList.remove('dragover'); if (e.dataTransfer.files.length) processFiles(Array.from(e.dataTransfer.files)); }
+function handleFileInput(e) { if (e.target.files.length) processFiles(Array.from(e.target.files)); }
+
+function simulateUpload() {
+  // Simula 5 arquivos XML com dados ficticios direto no Supabase
+  const fakeFiles = Array.from({length:5}, (_,i) => {
+    const chave = ('35250412345678000199550010000000' + String(i+100).padStart(9,'0') + '000000012').substring(0,44);
+    const cfops = ['1.102','2.102','1.556','1.551','2.556'];
+    const cfop = cfops[i];
+    const bruto = parseFloat((Math.random()*15000+2000).toFixed(2));
+    return {
+      empresa_id: EMPRESA_ID,
+      chave_nfe: chave,
+      numero_nf: String(1000+i),
+      serie: '1',
+      cfop: cfop,
+      data_emissao: new Date().toISOString().split('T')[0],
+      valor_bruto: bruto,
+      valor_icms: parseFloat((bruto*0.12).toFixed(2)),
+      valor_pis: parseFloat((bruto*0.0165).toFixed(2)),
+      valor_cofins: parseFloat((bruto*0.076).toFixed(2)),
+      status:'Pendente', origem:'Upload'
+    };
+  });
+
+  const list = document.getElementById('upload-list');
+  list.innerHTML = '';
+  document.getElementById('upload-summary').textContent = '';
+  let ok=0, dup=0;
+
+  fakeFiles.forEach(async (nf, i) => {
+    const item = document.createElement('div');
+    item.className = 'upload-item';
+    item.innerHTML = `<div class="upload-item-icon icon-xml">XML</div>
+      <div class="upload-item-info"><div class="upload-item-name">NF_simulada_${i+1}.xml</div><div class="upload-item-detail" id="sd-${i}">Enviando...</div></div>
+      <div class="progress-bar"><div class="progress-fill fill-blue" id="sf-${i}" style="width:0%"></div></div>
+      <div class="upload-status" id="ss-${i}">...</div>`;
+    list.appendChild(item);
+    document.getElementById('sf-'+i).style.width = '60%';
+
+    // Classificar
+    if (sb) {
+      const { data: rules } = await sb.from('cfop_rules').select('tipo').eq('empresa_id', EMPRESA_ID).eq('cfop', nf.cfop).maybeSingle();
+      nf.tipo = rules?.tipo || 'PENDENTE_CLASSIFICACAO';
+    }
+
+    await new Promise(r => setTimeout(r, 400 * (i+1)));
+    const { error } = await sb.from('notas_fiscais').insert(nf);
+
+    const icon = item.querySelector('.upload-item-icon');
+    const det = document.getElementById('sd-'+i);
+    const fill = document.getElementById('sf-'+i);
+    const st = document.getElementById('ss-'+i);
+    fill.style.width = '100%';
+
+    if (error && error.code==='23505') {
+      icon.className='upload-item-icon icon-dup'; icon.textContent='!';
+      fill.className='progress-fill fill-yellow';
+      det.textContent='Duplicada — idempotência'; det.style.color='var(--warn)';
+      st.textContent='DUP'; st.style.color='var(--warn)'; dup++;
+    } else if (error) {
+      icon.className='upload-item-icon icon-err'; icon.textContent='✗';
+      fill.className='progress-fill fill-red';
+      det.textContent=error.message; det.style.color='var(--danger)';
+      st.textContent='ERR'; st.style.color='var(--danger)';
+    } else {
+      icon.className='upload-item-icon icon-ok'; icon.textContent='✓';
+      fill.className='progress-fill fill-green';
+      det.textContent=`CFOP ${nf.cfop} · ${nf.tipo} · R$ ${fmtBRL(nf.valor_bruto)}`;
+      det.style.color='var(--text2)'; st.textContent='OK'; st.style.color='var(--accent)'; ok++;
+    }
+
+    if (i === fakeFiles.length-1) {
+      document.getElementById('upload-summary').textContent = `${ok} OK · ${dup} dup`;
+      toast(`${ok} NFs salvas no Supabase`, 'ok');
+      loadDashboard(); updateBadges();
+    }
+  });
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportCSV() {
+  const data = window._relData;
+  if (!data || !data.length) { toast('Gere o relatório primeiro', 'warn'); return; }
+  const rows = [['Chave NF-e','N° NF','CFOP','Tipo','Data Emissão','Valor Bruto','ICMS','PIS','COFINS','Status']];
+  data.forEach(n => rows.push([n.chave_nfe, n.numero_nf, n.cfop, n.tipo, n.data_emissao, n.valor_bruto, n.valor_icms, n.valor_pis, n.valor_cofins, n.status]));
+  const csv = rows.map(r => r.join(';')).join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='nf-entrada-relatorio.csv'; a.click();
+  toast('CSV exportado', 'ok');
+}
+
+function exportJSON() {
+  const data = window._relData;
+  if (!data || !data.length) { toast('Gere o relatório primeiro', 'warn'); return; }
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='nf-entrada-relatorio.json'; a.click();
+  toast('JSON exportado', 'ok');
+}
+
+function downloadSchema() {
+  const schema = `-- NF ENTRADA -- Schema Supabase
+-- Execute no SQL Editor do seu projeto
+
+create table if not exists empresas (id uuid primary key default gen_random_uuid(), cnpj text not null unique, razao_social text not null, regime_tributario text default 'Lucro Real', uf text default 'CE', created_at timestamptz default now());
+create table if not exists fornecedores (id uuid primary key default gen_random_uuid(), empresa_id uuid references empresas(id) on delete cascade, cnpj text not null, razao_social text not null, uf text, status_receita text default 'Ativa', created_at timestamptz default now(), unique(empresa_id, cnpj));
+create table if not exists cfop_rules (id uuid primary key default gen_random_uuid(), empresa_id uuid references empresas(id) on delete cascade, cfop text not null, descricao text not null, tipo text not null check (tipo in ('Revenda','Consumo','Imobilizado','PENDENTE_CLASSIFICACAO')), conta_contabil text, created_at timestamptz default now(), unique(empresa_id, cfop));
+create table if not exists notas_fiscais (id uuid primary key default gen_random_uuid(), empresa_id uuid references empresas(id) on delete cascade, fornecedor_id uuid references fornecedores(id), chave_nfe text not null unique, numero_nf text, serie text, cfop text, tipo text default 'PENDENTE_CLASSIFICACAO', data_emissao date, valor_bruto numeric(14,2) default 0, valor_desconto numeric(14,2) default 0, valor_icms numeric(14,2) default 0, valor_pis numeric(14,2) default 0, valor_cofins numeric(14,2) default 0, valor_ipi numeric(14,2) default 0, valor_st numeric(14,2) default 0, status text default 'Pendente' check (status in ('Pendente','Confirmada','Duplicada','Rejeitada')), origem text default 'Upload' check (origem in ('Upload','SEFAZ')), xml_storage_path text, hash_sha256 text, manifesto_enviado boolean default false, created_at timestamptz default now(), confirmed_at timestamptz, confirmed_by uuid);
+create table if not exists audit_log (id uuid primary key default gen_random_uuid(), empresa_id uuid references empresas(id), user_id uuid, acao text not null, tabela text, registro_id uuid, detalhe jsonb, created_at timestamptz default now());
+create table if not exists sefaz_config (id uuid primary key default gen_random_uuid(), empresa_id uuid references empresas(id) on delete cascade unique, ambiente text default 'producao', uf text default 'CE', intervalo_horas int default 1, manifesto_auto text default 'Ciente da Operação', cert_validade date, cert_titular text, updated_at timestamptz default now());
+
+-- RLS
+alter table empresas enable row level security;
+alter table fornecedores enable row level security;
+alter table cfop_rules enable row level security;
+alter table notas_fiscais enable row level security;
+alter table audit_log enable row level security;
+alter table sefaz_config enable row level security;
+create policy "acesso_proprio" on notas_fiscais for all using (true);
+create policy "acesso_proprio" on fornecedores for all using (true);
+create policy "acesso_proprio" on cfop_rules for all using (true);
+create policy "acesso_proprio" on audit_log for all using (true);
+create policy "acesso_proprio" on sefaz_config for all using (true);
+create policy "acesso_proprio" on empresas for all using (true);
+
+-- SEED
+insert into empresas (cnpj, razao_social, regime_tributario, uf) values ('12345678000199', 'Minha Empresa LTDA', 'Lucro Real', 'CE') on conflict (cnpj) do nothing;
+with emp as (select id from empresas where cnpj = '12345678000199')
+insert into cfop_rules (empresa_id, cfop, descricao, tipo, conta_contabil)
+select emp.id, v.cfop, v.desc, v.tipo, v.conta from emp, (values ('1.102','Compra para comercializacao estadual','Revenda','1.1.3.01'),('2.102','Compra para comercializacao interestadual','Revenda','1.1.3.01'),('3.102','Compra para comercializacao importacao','Revenda','1.1.3.01'),('1.556','Compra material uso e consumo estadual','Consumo','3.1.1.02'),('2.556','Compra material uso e consumo interestadual','Consumo','3.1.1.02'),('1.551','Compra bem ativo imobilizado estadual','Imobilizado','1.2.1.01'),('2.551','Compra bem ativo imobilizado interestadual','Imobilizado','1.2.1.01'),('1.403','Compra para industrializacao','Revenda','1.1.3.02')) as v(cfop, desc, tipo, conta) on conflict (empresa_id, cfop) do nothing;
+
+-- REALTIME: habilite no painel Supabase > Database > Replication para notas_fiscais e audit_log
+`;
+  const blob = new Blob([schema], {type:'text/sql'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='nf-entrada-schema.sql'; a.click();
+  toast('Schema SQL baixado', 'ok');
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+function renderPendingList(items, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!items || !items.length) { el.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:12px;padding:20px;">Sem pendências SEFAZ</div>'; return; }
+  el.innerHTML = items.map(n => `
+    <div class="pending-item">
+      <div class="pending-dot dot-new"></div>
+      <div class="pending-supplier">${'...'}</div>
+      <div class="pending-key">${(n.chave_nfe||'').substring(0,20)}...</div>
+      <div class="pending-value">R$ ${fmtBRL(n.valor_bruto)}</div>
+      <div class="pending-actions">
+        <button class="btn-xs confirm" onclick="confirmNotaDB('${n.id}')">Confirmar</button>
+      </div>
+    </div>`).join('');
+}
+
+function statusBadge(s) {
+  const map = { Confirmada:'badge-green', Pendente:'badge-yellow', Duplicada:'badge-red', Rejeitada:'badge-red', PENDENTE_CLASSIFICACAO:'badge-yellow' };
+  return `<span class="badge ${map[s]||'badge-blue'}">${s}</span>`;
+}
+function tipoBadge(t) {
+  const map = { Revenda:'badge-green', Consumo:'badge-blue', Imobilizado:'badge-purple', PENDENTE_CLASSIFICACAO:'badge-yellow' };
+  return `<span class="badge ${map[t]||'badge-yellow'}">${t||'—'}</span>`;
+}
+function fmtBRL(v) {
+  return (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function addLog(type, msg) {
+  const log = document.getElementById('sefaz-log');
+  if (!log) return;
+  const time = new Date().toTimeString().substring(0,8);
+  const tm = {ok:'log-ok',err:'log-err',warn:'log-warn',info:'log-info'};
+  const tg = {ok:'[OK]',err:'[ERR]',warn:'[WARN]',info:'[INFO]'};
+  const d = document.createElement('div'); d.className='log-line';
+  d.innerHTML=`<span class="log-time">${time}</span><span class="${tm[type]}">${tg[type]}</span><span>${msg}</span>`;
+  log.appendChild(d); log.scrollTop=log.scrollHeight;
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) closeModal(m.id); }));
+function toast(msg, type='ok') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div'); t.className='toast';
+  const col = {ok:'var(--accent)',warn:'var(--warn)',info:'var(--info)',err:'var(--danger)'};
+  t.innerHTML=`<div class="toast-dot" style="background:${col[type]||col.ok}"></div><div class="toast-text">${msg}</div>`;
+  c.appendChild(t);
+  setTimeout(()=>{ t.classList.add('fade-out'); setTimeout(()=>t.remove(),300); },3500);
+}
+function setEnv(btn, env) {
+  document.querySelectorAll('.env-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  toast('Ambiente: ' + env, 'info');
+  addLog('info', 'Ambiente alterado para: ' + env);
+}
+function openCfopModal() { openModal('modal-cfop'); }
+function changePeriod(d) {
+  currentPeriodOffset += d;
+  const now = new Date();
+  const dt = new Date(now.getFullYear(), now.getMonth() + currentPeriodOffset, 1);
+  document.getElementById('period-display').textContent = MONTHS_PT[dt.getMonth()] + ' ' + dt.getFullYear();
+}
+</script>
+</body>
+</html>
