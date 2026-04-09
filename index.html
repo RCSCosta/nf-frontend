@@ -1388,32 +1388,36 @@ async function processXmlText(xmlText, filename) {
     return m ? m[1].trim() : null;
   };
 
-  // Extrai valor de dentro de uma seção específica do XML
-  const getInSection = (section, tag) => {
-    const sectionMatch = xmlText.match(new RegExp(`<${section}[^>]*>([\s\S]*?)<\/${section}>`));
-    if (!sectionMatch) return null;
-    const m = sectionMatch[1].match(new RegExp(`<${tag}[^>]*>([^<]+)<\/${tag}>`));
-    return m ? m[1].trim() : null;
-  };
-
   const chave = xmlText.match(/Id="NFe(\d{44})"/)?.[1] || null;
   if (!chave) return { status:'err', detail:'Chave NF-e não encontrada no XML' };
 
-  // Pegar valores do ICMSTot (totais da nota, não dos itens)
-  const vNF = parseFloat(getInSection('ICMSTot', 'vNF') || get('vNF') || '0');
-  const vDesc = parseFloat(getInSection('ICMSTot', 'vDesc') || '0');
-  const vICMS = parseFloat(getInSection('ICMSTot', 'vICMS') || '0');
-  const vPIS = parseFloat(getInSection('ICMSTot', 'vPIS') || '0');
-  const vCOFINS = parseFloat(getInSection('ICMSTot', 'vCOFINS') || '0');
-  const vIPI = parseFloat(getInSection('ICMSTot', 'vIPI') || '0');
-  const vST = parseFloat(getInSection('ICMSTot', 'vST') || '0');
+  // Extrai ICMSTot — localiza o bloco pelo índice no XML
+  // Funciona mesmo com namespaces como xmlns="..."
+  const icmsTotStart = xmlText.indexOf('ICMSTot>');
+  const icmsTotEnd = xmlText.indexOf('/ICMSTot>');
+  const icmsTotBlock = icmsTotStart > -1 && icmsTotEnd > -1
+    ? xmlText.substring(icmsTotStart, icmsTotEnd + 9)
+    : '';
+
+  const getFromBlock = (block, tag) => {
+    const m = block.match(new RegExp('<' + tag + '[^>]*>([^<]+)</' + tag + '>'));
+    return m ? m[1].trim() : null;
+  };
+
+  const vNF     = parseFloat(getFromBlock(icmsTotBlock, 'vNF')     || get('vNF')     || '0');
+  const vDesc   = parseFloat(getFromBlock(icmsTotBlock, 'vDesc')   || '0');
+  const vICMS   = parseFloat(getFromBlock(icmsTotBlock, 'vICMS')   || '0');
+  const vPIS    = parseFloat(getFromBlock(icmsTotBlock, 'vPIS')    || '0');
+  const vCOFINS = parseFloat(getFromBlock(icmsTotBlock, 'vCOFINS') || '0');
+  const vIPI    = parseFloat(getFromBlock(icmsTotBlock, 'vIPI')    || '0');
+  const vST     = parseFloat(getFromBlock(icmsTotBlock, 'vST')     || '0');
 
   // CFOP mais frequente entre os itens
   const cfops = [...xmlText.matchAll(/<CFOP>(\d+)<\/CFOP>/g)].map(m => m[1]);
   const cfopCount = {};
   cfops.forEach(c => cfopCount[c] = (cfopCount[c] || 0) + 1);
   const cfopRaw = Object.keys(cfopCount).sort((a,b) => cfopCount[b]-cfopCount[a])[0] || '';
-  const cfop = cfopRaw.length === 4 ? `${cfopRaw[0]}.${cfopRaw.slice(1)}` : cfopRaw;
+  const cfop = cfopRaw.length === 4 ? cfopRaw[0] + '.' + cfopRaw.slice(1) : cfopRaw;
 
   const nf = {
     empresa_id: EMPRESA_ID,
