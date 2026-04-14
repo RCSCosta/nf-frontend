@@ -614,7 +614,7 @@ option{background:var(--bg3)}
         <span class="period-label">PERÍODO</span>
         <div style="display:flex;align-items:center;gap:12px;">
           <button class="period-btn" onclick="changePeriod(-1)">‹</button>
-          <div class="period-current" id="period-display">Abril 2025</div>
+          <div class="period-current" id="period-display">Abril 2026</div>
           <button class="period-btn" onclick="changePeriod(1)">›</button>
         </div>
         <div style="margin-left:auto;">
@@ -692,6 +692,12 @@ let EMPRESA_ID = null;
 let realtimeChannel = null;
 let currentPeriodOffset = 0;
 const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+// Inicializar período com mês atual
+window.addEventListener('load', () => {
+  const now = new Date();
+  const el = document.getElementById('period-display');
+  if (el) el.textContent = MONTHS_PT[now.getMonth()] + ' ' + now.getFullYear();
+});
 let currentNotaId = null;
 
 // ============================================================
@@ -999,11 +1005,13 @@ async function loadDashboard() {
   try {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
 
     const { data: notas } = await sb.from('notas_fiscais')
       .select('*')
       .eq('empresa_id', EMPRESA_ID)
-      .gte('data_emissao', firstDay.split('T')[0])
+      .gte('created_at', firstDay)
+      .lte('created_at', lastDay)
       .order('created_at', { ascending: false });
 
     if (!notas) return;
@@ -1019,7 +1027,8 @@ async function loadDashboard() {
     document.getElementById('stat-total').textContent = 'R$ ' + fmtBRL(total);
     document.getElementById('stat-pendentes').textContent = pendentes;
     document.getElementById('stat-notas').textContent = notas.length;
-    document.getElementById('stat-notas-sub').textContent = `${qtdRevenda} Revenda · ${qtdConsumo} Consumo`;
+    const qtdPendente = notas.filter(n => n.tipo === 'PENDENTE_CLASSIFICACAO').length;
+    document.getElementById('stat-notas-sub').textContent = `${qtdRevenda} Revenda · ${qtdConsumo} Consumo${qtdPendente > 0 ? ' · ' + qtdPendente + ' Pendente' : ''}`;
     document.getElementById('stat-impostos').textContent = 'R$ ' + fmtBRL(impostos);
     document.getElementById('total-revenda').textContent = 'R$ ' + fmtBRL(revenda);
     document.getElementById('total-consumo').textContent = 'R$ ' + fmtBRL(consumo);
@@ -1168,13 +1177,14 @@ async function loadRelatorio() {
   document.getElementById('rel-spin').style.display = 'inline-block';
   const now = new Date();
   const d = new Date(now.getFullYear(), now.getMonth() + currentPeriodOffset, 1);
-  const firstDay = d.toISOString().split('T')[0];
-  const lastDay = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
+  const firstDay = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString();
 
   try {
     const { data } = await sb.from('notas_fiscais').select('*')
       .eq('empresa_id', EMPRESA_ID)
-      .gte('data_emissao', firstDay).lte('data_emissao', lastDay);
+      .gte('created_at', firstDay)
+      .lte('created_at', lastDay);
 
     if (!data) return;
     const total = data.reduce((s,n)=>s+(n.valor_bruto||0),0);
@@ -1417,7 +1427,8 @@ async function processXmlText(xmlText, filename) {
   const cfopCount = {};
   cfops.forEach(c => cfopCount[c] = (cfopCount[c] || 0) + 1);
   const cfopRaw = Object.keys(cfopCount).sort((a,b) => cfopCount[b]-cfopCount[a])[0] || '';
-  const cfop = cfopRaw.length === 4 ? cfopRaw[0] + '.' + cfopRaw.slice(1) : cfopRaw;
+  // Normaliza CFOP: 6101 -> 6.101, já normalizado 6.101 fica igual
+  const cfop = cfopRaw.includes('.') ? cfopRaw : (cfopRaw.length === 4 ? cfopRaw[0] + '.' + cfopRaw.slice(1) : cfopRaw);
 
   const nf = {
     empresa_id: EMPRESA_ID,
