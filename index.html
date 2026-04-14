@@ -689,16 +689,17 @@ option{background:var(--bg3)}
           <table>
             <thead>
               <tr>
-                <th>Chave NF-e</th>
                 <th>Fornecedor</th>
                 <th>N°</th>
                 <th>CFOP</th>
                 <th>Tipo</th>
-                <th>Data Entrada</th>
                 <th>Data Emissão</th>
+                <th>Data Entrada</th>
+                <th>Data Confirmação</th>
                 <th>Val. Bruto</th>
-                <th>Impostos</th>
-                <th>Status</th>
+                <th>ICMS</th>
+                <th>PIS</th>
+                <th>COFINS</th>
                 <th></th>
               </tr>
             </thead>
@@ -1292,8 +1293,9 @@ async function loadRelatorio() {
   try {
     const { data } = await sb.from('notas_fiscais').select('*')
       .eq('empresa_id', EMPRESA_ID)
-      .gte('created_at', firstDay)
-      .lte('created_at', lastDay);
+      .eq('status', 'Confirmada')
+      .gte('confirmed_at', firstDay)
+      .lte('confirmed_at', lastDay);
 
     if (!data) return;
     const total = data.reduce((s,n)=>s+(n.valor_bruto||0),0);
@@ -1301,7 +1303,6 @@ async function loadRelatorio() {
     document.getElementById('rel-total').textContent = 'R$ ' + fmtBRL(total);
     document.getElementById('rel-impostos').textContent = 'R$ ' + fmtBRL(imp);
     document.getElementById('rel-qtd').textContent = data.length;
-
     // Agrupar por CFOP
     const byCfop = {};
     data.forEach(n => {
@@ -1345,26 +1346,27 @@ async function loadRelatorio() {
     if (!data.length) {
       tbodyNF.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3);">Nenhuma nota no período</td></tr>';
     } else {
-      const sorted = [...data].sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+      const sorted = [...data].sort((a,b) => new Date(a.confirmed_at) - new Date(b.confirmed_at));
       tbodyNF.innerHTML = sorted.map(n => {
         const fornNome = fornMap[n.fornecedor_id] || '—';
-        const dtEntrada = n.created_at ? n.created_at.substring(0,10).split('-').reverse().join('/') : '—';
         const dtEmissao = n.data_emissao ? n.data_emissao.split('-').reverse().join('/') : '—';
-        const impostos = (n.valor_icms||0)+(n.valor_pis||0)+(n.valor_cofins||0);
+        const dtEntrada = n.created_at ? n.created_at.substring(0,10).split('-').reverse().join('/') : '—';
+        const dtConfirmacao = n.confirmed_at ? n.confirmed_at.substring(0,10).split('-').reverse().join('/') : '—';
         return `<tr>
-          <td><span class="nfe-key">${(n.chave_nfe||'').substring(0,22)}...</span></td>
-          <td style="font-size:12px;font-weight:500;">${fornNome}</td>
+          <td style="font-size:12px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${fornNome}">${fornNome}</td>
           <td class="td-mono">${n.numero_nf||'—'}</td>
           <td class="td-mono" style="color:var(--accent);">${n.cfop||'—'}</td>
           <td>${tipoBadgeStr(n.tipo)}</td>
-          <td class="td-mono">${dtEntrada}</td>
           <td class="td-mono">${dtEmissao}</td>
+          <td class="td-mono">${dtEntrada}</td>
+          <td class="td-mono">${dtConfirmacao}</td>
           <td class="td-value">R$ ${fmtBRL(n.valor_bruto)}</td>
-          <td class="td-mono" style="color:var(--warn);">R$ ${fmtBRL(impostos)}</td>
-          <td>${statusBadge(n.status)}</td>
+          <td class="td-mono" style="color:var(--warn);">R$ ${fmtBRL(n.valor_icms)}</td>
+          <td class="td-mono" style="color:var(--info);">R$ ${fmtBRL(n.valor_pis)}</td>
+          <td class="td-mono" style="color:var(--info);">R$ ${fmtBRL(n.valor_cofins)}</td>
           <td><button class="btn-xs" onclick="openNota('${n.id}')">Ver</button></td>
         </tr>`;
-      }).join('');
+      }).join('');;
     }
 
   } catch(e) { toast('Erro: '+e.message,'err'); }
