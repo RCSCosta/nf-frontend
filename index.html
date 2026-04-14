@@ -1349,6 +1349,7 @@ async function loadRelatorio() {
     if (fornIds.length > 0) {
       const { data: forns } = await sb.from('fornecedores').select('id,razao_social').in('id', fornIds);
       if (forns) forns.forEach(f => fornMap[f.id] = f.razao_social);
+    window._relFornMap = fornMap;
     }
 
     document.getElementById('rel-nf-count').textContent = data.length + ' notas';
@@ -1798,12 +1799,74 @@ function simulateUpload() {
 function exportCSV() {
   const data = window._relData;
   if (!data || !data.length) { toast('Gere o relatório primeiro', 'warn'); return; }
-  const rows = [['Chave NF-e','N° NF','CFOP','Tipo','Data Emissão','Valor Bruto','ICMS','PIS','COFINS','Status']];
-  data.forEach(n => rows.push([n.chave_nfe, n.numero_nf, n.cfop, n.tipo, n.data_emissao, n.valor_bruto, n.valor_icms, n.valor_pis, n.valor_cofins, n.status]));
-  const csv = rows.map(r => r.join(';')).join('\n');
-  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  
+  const period = document.getElementById('period-display').textContent;
+  const fornMap = window._relFornMap || {};
+
+  // BOM + cabeçalho
+  const fmtMoeda = (v) => {
+    const n = parseFloat(v) || 0;
+    return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const fmtData = (d) => d ? d.substring(0,10).split('-').reverse().join('/') : '—';
+
+  const rows = [];
+  
+  // Título
+  rows.push([`RELATÓRIO DE NOTAS FISCAIS DE ENTRADA — ${period}`]);
+  rows.push([`Empresa: Santos Solução em Análises Clínicas`]);
+  rows.push([`CNPJ: 30.404.126/0001-92`]);
+  rows.push([`Gerado em: ${new Date().toLocaleString('pt-BR')}`]);
+  rows.push(['']);
+  
+  // Resumo
+  const total = data.reduce((s,n)=>s+(n.valor_bruto||0),0);
+  const icmsTotal = data.reduce((s,n)=>s+(n.valor_icms||0),0);
+  const pisTotal = data.reduce((s,n)=>s+(n.valor_pis||0),0);
+  const cofinsTotal = data.reduce((s,n)=>s+(n.valor_cofins||0),0);
+  rows.push(['RESUMO DO PERÍODO']);
+  rows.push(['Total de Notas', data.length]);
+  rows.push(['Total Bruto', fmtMoeda(total)]);
+  rows.push(['Total ICMS', fmtMoeda(icmsTotal)]);
+  rows.push(['Total PIS', fmtMoeda(pisTotal)]);
+  rows.push(['Total COFINS', fmtMoeda(cofinsTotal)]);
+  rows.push(['Total Impostos', fmtMoeda(icmsTotal+pisTotal+cofinsTotal)]);
+  rows.push(['']);
+
+  // Cabeçalho da tabela
+  rows.push(['Fornecedor','N° NF','CFOP','Tipo','Data Emissão','Data Entrada','Data Confirmação','Valor Bruto','ICMS','PIS','COFINS']);
+
+  // Dados
+  const sorted = [...data].sort((a,b) => new Date(a.confirmed_at) - new Date(b.confirmed_at));
+  sorted.forEach(n => {
+    const forn = fornMap[n.fornecedor_id] || '—';
+    rows.push([
+      forn,
+      n.numero_nf || '—',
+      n.cfop || '—',
+      n.tipo || '—',
+      fmtData(n.data_emissao),
+      fmtData(n.created_at),
+      fmtData(n.confirmed_at),
+      fmtMoeda(n.valor_bruto),
+      fmtMoeda(n.valor_icms),
+      fmtMoeda(n.valor_pis),
+      fmtMoeda(n.valor_cofins)
+    ]);
+  });
+
+  // Linha de totais
+  rows.push(['', '', '', '', '', '', 'TOTAL',
+    fmtMoeda(total), fmtMoeda(icmsTotal), fmtMoeda(pisTotal), fmtMoeda(cofinsTotal)
+  ]);
+
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='nf-entrada-relatorio.csv'; a.click();
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `NF-Entrada-${period.replace(' ','-')}.csv`;
+  a.click();
   toast('CSV exportado', 'ok');
 }
 
