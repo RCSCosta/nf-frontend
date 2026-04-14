@@ -689,17 +689,17 @@ option{background:var(--bg3)}
           <table>
             <thead>
               <tr>
+                <th>Chave NF-e</th>
                 <th>Fornecedor</th>
-                <th>N° NF</th>
-                <th>Data Entrada</th>
-                <th>Data Emissão</th>
+                <th>N°</th>
                 <th>CFOP</th>
                 <th>Tipo</th>
+                <th>Data Entrada</th>
+                <th>Data Emissão</th>
                 <th>Val. Bruto</th>
-                <th>ICMS</th>
-                <th>PIS</th>
-                <th>COFINS</th>
+                <th>Impostos</th>
                 <th>Status</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="rel-nf-body"><tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3);">Gere o relatório acima</td></tr></tbody>
@@ -1350,18 +1350,19 @@ async function loadRelatorio() {
         const fornNome = fornMap[n.fornecedor_id] || '—';
         const dtEntrada = n.created_at ? n.created_at.substring(0,10).split('-').reverse().join('/') : '—';
         const dtEmissao = n.data_emissao ? n.data_emissao.split('-').reverse().join('/') : '—';
+        const impostos = (n.valor_icms||0)+(n.valor_pis||0)+(n.valor_cofins||0);
         return `<tr>
-          <td style="font-size:12px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${fornNome}">${fornNome}</td>
+          <td><span class="nfe-key">${(n.chave_nfe||'').substring(0,22)}...</span></td>
+          <td style="font-size:12px;font-weight:500;">${fornNome}</td>
           <td class="td-mono">${n.numero_nf||'—'}</td>
-          <td class="td-mono">${dtEntrada}</td>
-          <td class="td-mono">${dtEmissao}</td>
           <td class="td-mono" style="color:var(--accent);">${n.cfop||'—'}</td>
           <td>${tipoBadgeStr(n.tipo)}</td>
+          <td class="td-mono">${dtEntrada}</td>
+          <td class="td-mono">${dtEmissao}</td>
           <td class="td-value">R$ ${fmtBRL(n.valor_bruto)}</td>
-          <td class="td-mono" style="color:var(--warn);">R$ ${fmtBRL(n.valor_icms)}</td>
-          <td class="td-mono" style="color:var(--info);">R$ ${fmtBRL(n.valor_pis)}</td>
-          <td class="td-mono" style="color:var(--info);">R$ ${fmtBRL(n.valor_cofins)}</td>
+          <td class="td-mono" style="color:var(--warn);">R$ ${fmtBRL(impostos)}</td>
           <td>${statusBadge(n.status)}</td>
+          <td><button class="btn-xs" onclick="openNota('${n.id}')">Ver</button></td>
         </tr>`;
       }).join('');
     }
