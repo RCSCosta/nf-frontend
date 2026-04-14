@@ -10,7 +10,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
 :root {
   --bg:#0a0c0f;--bg2:#111418;--bg3:#181c22;--bg4:#1e232b;
@@ -1804,228 +1803,40 @@ async function exportXLSX() {
   const period = document.getElementById('period-display').textContent;
   const fornMap = window._relFornMap || {};
 
-  const fmtMoeda = (v) => parseFloat(v) || 0;
-  const fmtData = (d) => d ? d.substring(0,10).split('-').reverse().join('/') : '—';
+  toast('Gerando Excel...', 'info');
 
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'NF-Entrada';
-  workbook.created = new Date();
-  const ws = workbook.addWorksheet('Relatório', { views: [{ showGridLines: false }] });
-
-  // Larguras das colunas
-  ws.columns = [
-    { key: 'fornecedor', width: 40 },
-    { key: 'nf', width: 10 },
-    { key: 'cfop', width: 8 },
-    { key: 'tipo', width: 12 },
-    { key: 'emissao', width: 14 },
-    { key: 'entrada', width: 14 },
-    { key: 'confirmacao', width: 16 },
-    { key: 'bruto', width: 16 },
-    { key: 'icms', width: 14 },
-    { key: 'pis', width: 14 },
-    { key: 'cofins', width: 14 },
-  ];
-
-  const azulEscuro = '1F3864';
-  const azulMedio = '2E75B6';
-  const azulClaro = 'BDD7EE';
-  const cinzaClaro = 'F2F2F2';
-  const verde = '00B050';
-  const azulTag = '2E75B6';
-  const branco = 'FFFFFF';
-  const amarelo = 'FFD700';
-
-  const moedaFmt = 'R$ #.##0,00';
-  const centralize = { horizontal: 'center', vertical: 'middle' };
-  const bordaThin = { style: 'thin', color: { argb: 'CCCCCC' } };
-  const bordaAll = { top: bordaThin, left: bordaThin, bottom: bordaThin, right: bordaThin };
-
-  // ── LINHA 1: Título ──
-  ws.mergeCells('A1:K1');
-  const title = ws.getCell('A1');
-  title.value = `RELATÓRIO DE NOTAS FISCAIS DE ENTRADA — ${period}`;
-  title.font = { name: 'Calibri', bold: true, size: 14, color: { argb: branco } };
-  title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: azulEscuro } };
-  title.alignment = centralize;
-  ws.getRow(1).height = 30;
-
-  // ── LINHA 2: Empresa ──
-  ws.mergeCells('A2:K2');
-  const emp = ws.getCell('A2');
-  emp.value = 'Empresa: Santos Solução em Análises Clínicas';
-  emp.font = { name: 'Calibri', size: 11, color: { argb: branco } };
-  emp.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: azulEscuro } };
-  emp.alignment = centralize;
-
-  // ── LINHA 3: CNPJ ──
-  ws.mergeCells('A3:K3');
-  const cnpjCell = ws.getCell('A3');
-  cnpjCell.value = 'CNPJ: 30.404.126/0001-92';
-  cnpjCell.font = { name: 'Calibri', size: 10, color: { argb: branco } };
-  cnpjCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: azulEscuro } };
-  cnpjCell.alignment = centralize;
-
-  // ── LINHA 4: Data geração ──
-  ws.mergeCells('A4:K4');
-  const dtCell = ws.getCell('A4');
-  dtCell.value = `Gerado em: ${new Date().toLocaleString('pt-BR')}`;
-  dtCell.font = { name: 'Calibri', size: 10, color: { argb: branco } };
-  dtCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: azulEscuro } };
-  dtCell.alignment = centralize;
-  ws.getRow(4).height = 20;
-
-  // ── LINHA 5: Espaço ──
-  ws.getRow(5).height = 8;
-
-  // ── LINHA 6: Título resumo ──
-  ws.mergeCells('A6:K6');
-  const resumoTitle = ws.getCell('A6');
-  resumoTitle.value = 'RESUMO DO PERÍODO';
-  resumoTitle.font = { name: 'Calibri', bold: true, size: 11 };
-  resumoTitle.alignment = centralize;
-
-  // Calcular totais
-  const sorted = [...data].sort((a,b) => new Date(a.confirmed_at) - new Date(b.confirmed_at));
-  const totalBruto = data.reduce((s,n)=>s+fmtMoeda(n.valor_bruto),0);
-  const totalICMS = data.reduce((s,n)=>s+fmtMoeda(n.valor_icms),0);
-  const totalPIS = data.reduce((s,n)=>s+fmtMoeda(n.valor_pis),0);
-  const totalCOFINS = data.reduce((s,n)=>s+fmtMoeda(n.valor_cofins),0);
-  const totalImpostos = totalICMS + totalPIS + totalCOFINS;
-
-  // ── LINHAS 7-11: Cards de resumo ──
-  const cardFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: azulClaro } };
-  const cardBorda = {
-    top: { style: 'medium', color: { argb: azulMedio } },
-    left: { style: 'medium', color: { argb: azulMedio } },
-    bottom: { style: 'medium', color: { argb: azulMedio } },
-    right: { style: 'medium', color: { argb: azulMedio } }
-  };
-
-  const cards = [
-    { cols: 'A7:B11', label: 'Total de Notas', value: data.length, fmt: null },
-    { cols: 'C7:E11', label: 'Total Bruto', value: totalBruto, fmt: moedaFmt },
-    { cols: 'F7:H11', label: 'Total ICMS', value: totalICMS, fmt: moedaFmt },
-    { cols: 'I7:K11', label: 'Total Impostos', value: totalImpostos, fmt: moedaFmt },
-  ];
-
-  cards.forEach(card => {
-    ws.mergeCells(card.cols);
-    const cell = ws.getCell(card.cols.split(':')[0]);
-    if (card.fmt) {
-      cell.value = { richText: [
-        { text: card.label + '\n', font: { name: 'Calibri', size: 10, color: { argb: '444444' } } },
-        { text: typeof card.value === 'number' && card.fmt
-            ? 'R$ ' + card.value.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
-            : String(card.value),
-          font: { name: 'Calibri', bold: true, size: 14, color: { argb: azulEscuro } } }
-      ]};
-    } else {
-      cell.value = { richText: [
-        { text: card.label + '\n', font: { name: 'Calibri', size: 10, color: { argb: '444444' } } },
-        { text: String(card.value), font: { name: 'Calibri', bold: true, size: 14, color: { argb: azulEscuro } } }
-      ]};
-    }
-    cell.fill = cardFill;
-    cell.border = cardBorda;
-    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-  });
-  [7,8,9,10,11].forEach(r => ws.getRow(r).height = 18);
-
-  // ── LINHA 12: Espaço ──
-  ws.getRow(12).height = 8;
-
-  // ── LINHA 13: Espaço ──
-  ws.getRow(13).height = 8;
-
-  // ── LINHA 14: Cabeçalho da tabela ──
-  const headers = ['Fornecedor','N° NF','CFOP','Tipo','Data Emissão','Data Entrada','Data Confirmação','Valor Bruto','ICMS','PIS','COFINS'];
-  const headerRow = ws.getRow(14);
-  headerRow.height = 22;
-  headers.forEach((h, i) => {
-    const cell = headerRow.getCell(i+1);
-    cell.value = h;
-    cell.font = { name: 'Calibri', bold: true, size: 10, color: { argb: branco } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: azulMedio } };
-    cell.alignment = centralize;
-    cell.border = bordaAll;
-  });
-
-  // ── LINHAS DE DADOS ──
-  sorted.forEach((n, idx) => {
-    const forn = fornMap[n.fornecedor_id] || '—';
-    const rowNum = 15 + idx;
-    const row = ws.getRow(rowNum);
-    row.height = 18;
-    const isAlt = idx % 2 === 1;
-    const bgFill = isAlt
-      ? { type: 'pattern', pattern: 'solid', fgColor: { argb: cinzaClaro } }
-      : { type: 'pattern', pattern: 'solid', fgColor: { argb: branco } };
-
-    const values = [
-      forn,
-      n.numero_nf || '—',
-      n.cfop || '—',
-      n.tipo || '—',
-      fmtData(n.data_emissao),
-      fmtData(n.created_at),
-      fmtData(n.confirmed_at),
-      fmtMoeda(n.valor_bruto),
-      fmtMoeda(n.valor_icms),
-      fmtMoeda(n.valor_pis),
-      fmtMoeda(n.valor_cofins),
-    ];
-
-    values.forEach((v, i) => {
-      const cell = row.getCell(i+1);
-      cell.value = v;
-      cell.fill = bgFill;
-      cell.border = bordaAll;
-      cell.font = { name: 'Calibri', size: 10 };
-      if (i === 0) {
-        cell.alignment = { horizontal: 'left', vertical: 'middle' };
-      } else if ([7,8,9,10].includes(i)) {
-        cell.numFmt = moedaFmt;
-        cell.alignment = { horizontal: 'right', vertical: 'middle' };
-      } else {
-        cell.alignment = centralize;
-      }
-      // Colorir badge Tipo
-      if (i === 3) {
-        cell.font = { name: 'Calibri', size: 10, bold: true,
-          color: { argb: v === 'Consumo' ? '1F6B9A' : '276221' } };
-      }
+  try {
+    const response = await fetch(BACKEND_URL + '/api/relatorio/excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        notas: data,
+        fornecedores: fornMap,
+        periodo: period,
+        empresa: {
+          nome: 'Santos Solução em Análises Clínicas',
+          cnpj: '30.404.126/0001-92'
+        }
+      })
     });
-  });
 
-  // ── LINHA DE TOTAL ──
-  const totalRowNum = 15 + sorted.length;
-  const totalRow = ws.getRow(totalRowNum);
-  totalRow.height = 22;
-  const totalLabels = ['','','','','','','TOTAL', totalBruto, totalICMS, totalPIS, totalCOFINS];
-  totalLabels.forEach((v, i) => {
-    const cell = totalRow.getCell(i+1);
-    cell.value = v;
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: azulEscuro } };
-    cell.font = { name: 'Calibri', bold: true, size: 10, color: { argb: branco } };
-    cell.border = bordaAll;
-    if ([7,8,9,10].includes(i)) {
-      cell.numFmt = moedaFmt;
-      cell.alignment = { horizontal: 'right', vertical: 'middle' };
-    } else {
-      cell.alignment = centralize;
+    if (!response.ok) {
+      const err = await response.json();
+      toast('Erro: ' + (err.erro || 'Falha ao gerar Excel'), 'err');
+      return;
     }
-  });
 
-  // Gerar e baixar
-  const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `NF-Entrada-${period.replace(' ','-')}.xlsx`;
-  a.click();
-  toast('Excel exportado com sucesso!', 'ok');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `NF-Entrada-${period.replace(' ', '-')}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Excel exportado com sucesso!', 'ok');
+  } catch(e) {
+    toast('Erro ao conectar com o backend: ' + e.message, 'err');
+  }
 }
 
 function exportJSON() {
