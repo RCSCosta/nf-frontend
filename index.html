@@ -601,9 +601,43 @@ option{background:var(--bg3)}
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Razão Social</th><th>CNPJ</th><th>UF</th><th>Status</th><th>Total NFs</th></tr></thead>
-            <tbody id="forn-body"><tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text3);">Carregando...</td></tr></tbody>
+            <thead><tr><th>Razão Social</th><th>CNPJ</th><th>UF</th><th>Tipo Padrão</th><th>Status</th><th>Ação</th></tr></thead>
+            <tbody id="forn-body"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text3);">Carregando...</td></tr></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Modal editar fornecedor -->
+      <div class="modal-overlay" id="modal-forn">
+        <div class="modal">
+          <div class="modal-header"><div class="modal-title" id="modal-forn-title">Editar Fornecedor</div><button class="close-btn" onclick="closeModal('modal-forn')">×</button></div>
+          <div class="modal-body">
+            <input type="hidden" id="forn-edit-id">
+            <div class="field-group" style="margin-bottom:14px;">
+              <label class="field-label">RAZÃO SOCIAL</label>
+              <input type="text" class="field-input" id="forn-edit-nome" readonly style="opacity:0.6;">
+            </div>
+            <div class="field-group" style="margin-bottom:14px;">
+              <label class="field-label">CNPJ</label>
+              <input type="text" class="field-input" id="forn-edit-cnpj" readonly style="opacity:0.6;">
+            </div>
+            <div class="field-group" style="margin-bottom:14px;">
+              <label class="field-label">TIPO PADRÃO DE COMPRA</label>
+              <select class="field-select" id="forn-edit-tipo">
+                <option value="">Classificar pelo CFOP (padrão)</option>
+                <option value="Revenda">Sempre Revenda</option>
+                <option value="Consumo">Sempre Consumo</option>
+                <option value="Imobilizado">Sempre Imobilizado</option>
+              </select>
+            </div>
+            <div class="info-box blue" style="padding:12px;background:var(--info-dim);border:1px solid rgba(59,130,246,0.2);border-radius:var(--radius);">
+              <div style="font-size:12px;color:var(--info);">💡 Quando definido, o Tipo Padrão sobrescreve a regra de CFOP para todas as NF-e deste fornecedor.</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" onclick="closeModal('modal-forn')">Cancelar</button>
+            <button class="btn btn-accent" onclick="salvarFornecedor()">Salvar</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1150,15 +1184,61 @@ async function loadFornecedores() {
   const { data } = await sb.from('fornecedores').select('*').eq('empresa_id', EMPRESA_ID).order('razao_social');
   document.getElementById('forn-count').textContent = (data?.length || 0) + ' fornecedores';
   const tbody = document.getElementById('forn-body');
-  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text3);">Nenhum fornecedor</td></tr>'; return; }
-  tbody.innerHTML = data.map(f => `
-    <tr>
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text3);">Nenhum fornecedor</td></tr>'; return; }
+  tbody.innerHTML = data.map(f => {
+    const tipoBadge = f.tipo_padrao
+      ? tipoBadgeStr(f.tipo_padrao)
+      : '<span style="font-size:11px;color:var(--text3);">Pelo CFOP</span>';
+    const cnpjFmt = f.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    return `<tr>
       <td style="font-size:12px;font-weight:500;">${f.razao_social}</td>
-      <td class="td-mono">${f.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5')}</td>
+      <td class="td-mono">${cnpjFmt}</td>
       <td class="td-mono">${f.uf || '—'}</td>
+      <td>${tipoBadge}</td>
       <td>${f.status_receita==='Ativa'?'<span class="badge badge-green">Ativa</span>':'<span class="badge badge-red">Baixada</span>'}</td>
-      <td class="td-mono">—</td>
-    </tr>`).join('');
+      <td><button class="btn-xs" onclick="editarFornecedor('${f.id}','${f.razao_social.replace(/'/g,'')}','${f.cnpj}','${f.tipo_padrao||''}')" >✏️ Editar</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function tipoBadgeStr(t) {
+  const map = { Revenda:'badge-green', Consumo:'badge-blue', Imobilizado:'badge-purple', PENDENTE_CLASSIFICACAO:'badge-yellow' };
+  return `<span class="badge ${map[t]||'badge-yellow'}">${t}</span>`;
+}
+
+function editarFornecedor(id, nome, cnpj, tipoPadrao) {
+  document.getElementById('forn-edit-id').value = id;
+  document.getElementById('forn-edit-nome').value = nome;
+  document.getElementById('forn-edit-cnpj').value = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  document.getElementById('forn-edit-tipo').value = tipoPadrao || '';
+  document.getElementById('modal-forn-title').textContent = 'Editar: ' + nome;
+  openModal('modal-forn');
+}
+
+async function salvarFornecedor() {
+  const id = document.getElementById('forn-edit-id').value;
+  const tipoPadrao = document.getElementById('forn-edit-tipo').value || null;
+  
+  const { error } = await sb.from('fornecedores')
+    .update({ tipo_padrao: tipoPadrao })
+    .eq('id', id);
+  
+  if (error) { toast('Erro: ' + error.message, 'err'); return; }
+  
+  // Se tem tipo padrão, atualiza todas as NF-e deste fornecedor
+  if (tipoPadrao) {
+    await sb.from('notas_fiscais')
+      .update({ tipo: tipoPadrao })
+      .eq('fornecedor_id', id)
+      .eq('empresa_id', EMPRESA_ID);
+    toast('Fornecedor e notas atualizados para ' + tipoPadrao, 'ok');
+  } else {
+    toast('Tipo padrão removido — notas seguirão o CFOP', 'ok');
+  }
+  
+  closeModal('modal-forn');
+  loadFornecedores();
+  loadDashboard();
 }
 
 async function loadSefazConfig() {
@@ -1466,12 +1546,20 @@ async function processXmlText(xmlText, filename) {
     }
   }
 
-  // Classificação por CFOP
-  if (nf.cfop && sb) {
-    const cfopNorm = nf.cfop.replace(/^(\d)(\d{3})$/, '$1.$2');
-    const { data: rules } = await sb.from('cfop_rules').select('tipo').eq('empresa_id', EMPRESA_ID).eq('cfop', cfopNorm).maybeSingle();
+  // Classificação — primeiro verifica tipo_padrao do fornecedor, depois CFOP
+  if (nf.fornecedor_id) {
+    const { data: forn } = await sb.from('fornecedores').select('tipo_padrao').eq('id', nf.fornecedor_id).maybeSingle();
+    if (forn?.tipo_padrao) {
+      nf.tipo = forn.tipo_padrao;
+    } else if (nf.cfop) {
+      const { data: rules } = await sb.from('cfop_rules').select('tipo').eq('empresa_id', EMPRESA_ID).eq('cfop', nf.cfop).maybeSingle();
+      nf.tipo = rules?.tipo || 'PENDENTE_CLASSIFICACAO';
+    } else {
+      nf.tipo = 'PENDENTE_CLASSIFICACAO';
+    }
+  } else if (nf.cfop) {
+    const { data: rules } = await sb.from('cfop_rules').select('tipo').eq('empresa_id', EMPRESA_ID).eq('cfop', nf.cfop).maybeSingle();
     nf.tipo = rules?.tipo || 'PENDENTE_CLASSIFICACAO';
-    if (cfopNorm) nf.cfop = cfopNorm;
   } else {
     nf.tipo = 'PENDENTE_CLASSIFICACAO';
   }
