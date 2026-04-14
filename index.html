@@ -9,7 +9,7 @@
 <script>
   // Registra Service Worker para controle de cache
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/nf-frontend/sw.js').then(reg => {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
       reg.update(); // Força verificação de atualização sempre
     }).catch(() => {});
   }
