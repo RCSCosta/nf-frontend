@@ -6,6 +6,14 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<script>
+  // Registra Service Worker para controle de cache
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/nf-frontend/sw.js').then(reg => {
+      reg.update(); // Força verificação de atualização sempre
+    }).catch(() => {});
+  }
+</script>
 <title>NF Entrada — Supabase</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
