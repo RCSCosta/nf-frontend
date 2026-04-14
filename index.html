@@ -668,12 +668,41 @@ option{background:var(--bg3)}
         <button class="btn" onclick="exportJSON()">⬇ Exportar JSON</button>
         <div style="margin-left:auto;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;align-self:center;" id="rel-hash">Hash SHA-256: —</div>
       </div>
-      <div class="card">
+      <!-- Resumo por CFOP -->
+      <div class="card" style="margin-bottom:16px;">
         <div class="card-header"><div class="card-title">Resumo por CFOP</div></div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>CFOP</th><th>Tipo</th><th>Qtd NFs</th><th>Val. Bruto</th><th>ICMS</th><th>PIS</th><th>COFINS</th></tr></thead>
             <tbody id="rel-body"><tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3);">Gere o relatório acima</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Listagem completa por NF -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Notas Fiscais do Período</div>
+          <span id="rel-nf-count" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fornecedor</th>
+                <th>N° NF</th>
+                <th>Data Entrada</th>
+                <th>Data Emissão</th>
+                <th>CFOP</th>
+                <th>Tipo</th>
+                <th>Val. Bruto</th>
+                <th>ICMS</th>
+                <th>PIS</th>
+                <th>COFINS</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="rel-nf-body"><tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3);">Gere o relatório acima</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1302,6 +1331,41 @@ async function loadRelatorio() {
     const hash = btoa(JSON.stringify({total, imp, qtd: data.length, period: firstDay})).substring(0,32);
     document.getElementById('rel-hash').textContent = 'Hash: ' + hash + '...';
     window._relData = data;
+
+    // Listagem completa por NF — busca fornecedores
+    const fornIds = [...new Set(data.filter(n=>n.fornecedor_id).map(n=>n.fornecedor_id))];
+    let fornMap = {};
+    if (fornIds.length > 0) {
+      const { data: forns } = await sb.from('fornecedores').select('id,razao_social').in('id', fornIds);
+      if (forns) forns.forEach(f => fornMap[f.id] = f.razao_social);
+    }
+
+    document.getElementById('rel-nf-count').textContent = data.length + ' notas';
+    const tbodyNF = document.getElementById('rel-nf-body');
+    if (!data.length) {
+      tbodyNF.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3);">Nenhuma nota no período</td></tr>';
+    } else {
+      const sorted = [...data].sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+      tbodyNF.innerHTML = sorted.map(n => {
+        const fornNome = fornMap[n.fornecedor_id] || '—';
+        const dtEntrada = n.created_at ? n.created_at.substring(0,10).split('-').reverse().join('/') : '—';
+        const dtEmissao = n.data_emissao ? n.data_emissao.split('-').reverse().join('/') : '—';
+        return `<tr>
+          <td style="font-size:12px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${fornNome}">${fornNome}</td>
+          <td class="td-mono">${n.numero_nf||'—'}</td>
+          <td class="td-mono">${dtEntrada}</td>
+          <td class="td-mono">${dtEmissao}</td>
+          <td class="td-mono" style="color:var(--accent);">${n.cfop||'—'}</td>
+          <td>${tipoBadgeStr(n.tipo)}</td>
+          <td class="td-value">R$ ${fmtBRL(n.valor_bruto)}</td>
+          <td class="td-mono" style="color:var(--warn);">R$ ${fmtBRL(n.valor_icms)}</td>
+          <td class="td-mono" style="color:var(--info);">R$ ${fmtBRL(n.valor_pis)}</td>
+          <td class="td-mono" style="color:var(--info);">R$ ${fmtBRL(n.valor_cofins)}</td>
+          <td>${statusBadge(n.status)}</td>
+        </tr>`;
+      }).join('');
+    }
+
   } catch(e) { toast('Erro: '+e.message,'err'); }
   finally { document.getElementById('rel-spin').style.display = 'none'; }
 }
