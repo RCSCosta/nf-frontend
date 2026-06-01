@@ -1643,6 +1643,122 @@ async function loadChartEvolucao() {
     }
   });
 }
+
+// ============================================================
+// EXPORT FUNCTIONS
+// ============================================================
+async function exportXLSX() {
+  const data = window._relData;
+  if (!data || !data.length) { toast('Gere o relatório primeiro', 'warn'); return; }
+
+  const period = document.getElementById('period-display').textContent;
+  const fornMap = window._relFornMap || {};
+
+  const fmtData = (d) => d ? d.substring(0,10).split('-').reverse().join('/') : '—';
+  const fmtVal = (v) => parseFloat(v) || 0;
+  const moeda = (v) => {
+    const n = fmtVal(v);
+    if (n === 0) return 'R$ -';
+    return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const totalBruto   = data.reduce((s,n) => s + fmtVal(n.valor_bruto), 0);
+  const totalICMS    = data.reduce((s,n) => s + fmtVal(n.valor_icms), 0);
+  const totalPIS     = data.reduce((s,n) => s + fmtVal(n.valor_pis), 0);
+  const totalCOFINS  = data.reduce((s,n) => s + fmtVal(n.valor_cofins), 0);
+  const totalImpostos = totalICMS + totalPIS + totalCOFINS;
+
+  const sorted = [...data].sort((a,b) => new Date(a.confirmed_at||0) - new Date(b.confirmed_at||0));
+
+  const azul = '#1F3864';
+  const azulMed = '#2E75B6';
+  const azulClaro = '#BDD7EE';
+  const cinza = '#F2F2F2';
+  const verde = '#276221';
+
+  let rowsHTML = '';
+  sorted.forEach((n, i) => {
+    const bg = i % 2 === 0 ? '#FFFFFF' : cinza;
+    const tipoColor = n.tipo === 'Consumo' ? '#1F6B9A' : verde;
+    rowsHTML += '<tr>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;padding:5px 8px;">' + (fornMap[n.fornecedor_id]||'—') + '</td>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;padding:5px 8px;">' + (n.numero_nf||'—') + '</td>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;padding:5px 8px;">' + (n.cfop||'—') + '</td>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;color:'+tipoColor+';font-weight:bold;padding:5px 8px;">' + (n.tipo||'—') + '</td>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;padding:5px 8px;">' + fmtData(n.data_emissao) + '</td>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;padding:5px 8px;">' + fmtData(n.created_at) + '</td>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;padding:5px 8px;">' + fmtData(n.confirmed_at) + '</td>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:right;padding:5px 8px;">' + moeda(n.valor_bruto) + '</td>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:right;padding:5px 8px;">' + moeda(n.valor_icms) + '</td>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:right;padding:5px 8px;">' + moeda(n.valor_pis) + '</td>'
+      + '<td style="background:'+bg+';border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:right;padding:5px 8px;">' + moeda(n.valor_cofins) + '</td>'
+      + '</tr>';
+  });
+
+  const headers = ['Fornecedor','N° NF','CFOP','Tipo','Data Emissão','Data Entrada','Data Confirmação','Valor Bruto','ICMS','PIS','COFINS'];
+  let headerHTML = '';
+  headers.forEach(h => {
+    headerHTML += '<td style="background:'+azulMed+';color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:center;padding:6px 8px;border:1px solid '+azulMed+';">'+h+'</td>';
+  });
+
+  const html = ''
+    + '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'
+    + '<head><meta charset="UTF-8">'
+    + '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>'
+    + '<x:Name>Relatorio</x:Name>'
+    + '<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'
+    + '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->'
+    + '</head><body>'
+    + '<table style="border-collapse:collapse;width:100%;">'
+    + '<tr><td colspan="11" style="background:'+azul+';color:#FFFFFF;font-family:Calibri;font-size:14pt;font-weight:bold;text-align:center;padding:12px;border:1px solid '+azul+';">RELATÓRIO DE NOTAS FISCAIS DE ENTRADA — '+period+'</td></tr>'
+    + '<tr><td colspan="11" style="background:'+azul+';color:#FFFFFF;font-family:Calibri;font-size:10pt;text-align:center;padding:4px;border:1px solid '+azul+';">Empresa: Santos Solução em Análises Clínicas</td></tr>'
+    + '<tr><td colspan="11" style="background:'+azul+';color:#FFFFFF;font-family:Calibri;font-size:10pt;text-align:center;padding:4px;border:1px solid '+azul+';">CNPJ: 30.404.126/0001-92</td></tr>'
+    + '<tr><td colspan="11" style="background:'+azul+';color:#FFFFFF;font-family:Calibri;font-size:10pt;text-align:center;padding:4px;border:1px solid '+azul+';">Gerado em: '+new Date().toLocaleString('pt-BR')+'</td></tr>'
+    + '<tr><td colspan="11" style="padding:4px;"></td></tr>'
+    + '<tr><td colspan="11" style="font-family:Calibri;font-size:11pt;font-weight:bold;text-align:center;padding:6px;border:1px solid #CCCCCC;">RESUMO DO PERÍODO</td></tr>'
+    + '<tr>'
+    + '<td colspan="2" style="background:'+azulClaro+';border:2px solid '+azulMed+';font-family:Calibri;font-size:10pt;text-align:center;padding:8px;"><b>Total de Notas</b><br><span style="font-size:14pt;color:'+azul+';"><b>'+data.length+'</b></span></td>'
+    + '<td colspan="3" style="background:'+azulClaro+';border:2px solid '+azulMed+';font-family:Calibri;font-size:10pt;text-align:center;padding:8px;"><b>Total Bruto</b><br><span style="font-size:14pt;color:'+azul+';"><b>'+moeda(totalBruto)+'</b></span></td>'
+    + '<td colspan="3" style="background:'+azulClaro+';border:2px solid '+azulMed+';font-family:Calibri;font-size:10pt;text-align:center;padding:8px;"><b>Total ICMS</b><br><span style="font-size:14pt;color:'+azul+';"><b>'+moeda(totalICMS)+'</b></span></td>'
+    + '<td colspan="3" style="background:'+azulClaro+';border:2px solid '+azulMed+';font-family:Calibri;font-size:10pt;text-align:center;padding:8px;"><b>Total Impostos</b><br><span style="font-size:14pt;color:'+azul+';"><b>'+moeda(totalImpostos)+'</b></span></td>'
+    + '</tr>'
+    + '<tr><td colspan="11" style="padding:4px;"></td></tr>'
+    + '<tr>'+headerHTML+'</tr>'
+    + rowsHTML
+    + '<tr>'
+    + '<td colspan="7" style="background:'+azul+';color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:right;padding:6px 8px;border:1px solid '+azul+';">TOTAL</td>'
+    + '<td style="background:'+azul+';color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:right;padding:6px 8px;border:1px solid '+azul+';">'+moeda(totalBruto)+'</td>'
+    + '<td style="background:'+azul+';color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:right;padding:6px 8px;border:1px solid '+azul+';">'+moeda(totalICMS)+'</td>'
+    + '<td style="background:'+azul+';color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:right;padding:6px 8px;border:1px solid '+azul+';">'+moeda(totalPIS)+'</td>'
+    + '<td style="background:'+azul+';color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:right;padding:6px 8px;border:1px solid '+azul+';">'+moeda(totalCOFINS)+'</td>'
+    + '</tr></table></body></html>';
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'NF-Entrada-' + period.replace(' ','-') + '.xls';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Excel exportado com formatação!', 'ok');
+}
+
+function exportJSON() {
+  const data = window._relData;
+  if (!data || !data.length) { toast('Gere o relatório primeiro', 'warn'); return; }
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='nf-entrada-relatorio.json'; a.click();
+  toast('JSON exportado', 'ok');
+}
+
+function changePeriod(d) {
+  currentPeriodOffset += d;
+  const now = new Date();
+  const dt = new Date(now.getFullYear(), now.getMonth() + currentPeriodOffset, 1);
+  document.getElementById('period-display').textContent = MONTHS_PT[dt.getMonth()] + ' ' + dt.getFullYear();
+}
+
 </script>
 
 <!-- BOTTOM NAV — mobile only -->
