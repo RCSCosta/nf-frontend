@@ -2210,73 +2210,126 @@ async function exportXLSX() {
 
   const fmtData = (d) => d ? d.substring(0,10).split('-').reverse().join('/') : '—';
   const fmtVal = (v) => parseFloat(v) || 0;
+  const moeda = (v) => {
+    const n = fmtVal(v);
+    if (n === 0) return 'R$ -';
+    return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
 
-  // Calcular totais
   const totalBruto   = data.reduce((s,n) => s + fmtVal(n.valor_bruto), 0);
   const totalICMS    = data.reduce((s,n) => s + fmtVal(n.valor_icms), 0);
   const totalPIS     = data.reduce((s,n) => s + fmtVal(n.valor_pis), 0);
   const totalCOFINS  = data.reduce((s,n) => s + fmtVal(n.valor_cofins), 0);
   const totalImpostos = totalICMS + totalPIS + totalCOFINS;
-  const moeda = (v) => 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-  const wb = XLSX.utils.book_new();
-  const wsData = [];
-
-  // Cabeçalho
-  wsData.push([`RELATÓRIO DE NOTAS FISCAIS DE ENTRADA — ${period}`]);
-  wsData.push([`Empresa: Santos Solução em Análises Clínicas`]);
-  wsData.push([`CNPJ: 30.404.126/0001-92`]);
-  wsData.push([`Gerado em: ${new Date().toLocaleString('pt-BR')}`]);
-  wsData.push([]);
-
-  // Resumo
-  wsData.push(['RESUMO DO PERÍODO']);
-  wsData.push(['Total de Notas', data.length]);
-  wsData.push(['Total Bruto', moeda(totalBruto)]);
-  wsData.push(['Total ICMS', moeda(totalICMS)]);
-  wsData.push(['Total PIS', moeda(totalPIS)]);
-  wsData.push(['Total COFINS', moeda(totalCOFINS)]);
-  wsData.push(['Total Impostos', moeda(totalImpostos)]);
-  wsData.push([]);
-
-  // Cabeçalho da tabela
-  wsData.push(['Fornecedor','N° NF','CFOP','Tipo','Data Emissão','Data Entrada','Data Confirmação','Valor Bruto','ICMS','PIS','COFINS']);
-
-  // Dados
   const sorted = [...data].sort((a,b) => new Date(a.confirmed_at||0) - new Date(b.confirmed_at||0));
-  sorted.forEach(n => {
-    wsData.push([
-      fornMap[n.fornecedor_id] || '—',
-      n.numero_nf || '—',
-      n.cfop || '—',
-      n.tipo || '—',
-      fmtData(n.data_emissao),
-      fmtData(n.created_at),
-      fmtData(n.confirmed_at),
-      moeda(fmtVal(n.valor_bruto)),
-      moeda(fmtVal(n.valor_icms)),
-      moeda(fmtVal(n.valor_pis)),
-      moeda(fmtVal(n.valor_cofins))
-    ]);
-  });
 
-  // Totais
-  wsData.push(['','','','','','','TOTAL',
-    moeda(totalBruto), moeda(totalICMS), moeda(totalPIS), moeda(totalCOFINS)
-  ]);
+  const azul = '#1F3864';
+  const azulMed = '#2E75B6';
+  const azulClaro = '#BDD7EE';
+  const cinza = '#F2F2F2';
+  const verde = '#276221';
+  const verdeClaro = '#E2EFDA';
 
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const rows = sorted.map((n, i) => {
+    const bg = i % 2 === 0 ? '#FFFFFF' : cinza;
+    const tipoColor = n.tipo === 'Consumo' ? '#1F6B9A' : verde;
+    return `<tr>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;padding:5px 8px;">${fornMap[n.fornecedor_id]||'—'}</td>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;padding:5px 8px;">${n.numero_nf||'—'}</td>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;padding:5px 8px;">${n.cfop||'—'}</td>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;color:${tipoColor};font-weight:bold;padding:5px 8px;">${n.tipo||'—'}</td>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;padding:5px 8px;">${fmtData(n.data_emissao)}</td>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;padding:5px 8px;">${fmtData(n.created_at)}</td>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:center;padding:5px 8px;">${fmtData(n.confirmed_at)}</td>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:right;padding:5px 8px;">${moeda(n.valor_bruto)}</td>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:right;padding:5px 8px;">${moeda(n.valor_icms)}</td>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:right;padding:5px 8px;">${moeda(n.valor_pis)}</td>
+      <td style="background:${bg};border:1px solid #CCCCCC;font-family:Calibri;font-size:10pt;text-align:right;padding:5px 8px;">${moeda(n.valor_cofins)}</td>
+    </tr>`;
+  }).join('');
 
-  // Larguras das colunas
-  ws['!cols'] = [
-    {wch:40},{wch:10},{wch:8},{wch:12},
-    {wch:14},{wch:14},{wch:16},
-    {wch:18},{wch:14},{wch:14},{wch:14}
-  ];
+  const html = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="UTF-8">
+<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>Relatório</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+</head>
+<body>
+<table style="border-collapse:collapse;width:100%;">
 
-  XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
-  XLSX.writeFile(wb, `NF-Entrada-${period.replace(' ','-')}.xlsx`);
-  toast('Excel exportado!', 'ok');
+  <!-- Cabeçalho -->
+  <tr><td colspan="11" style="background:${azul};color:#FFFFFF;font-family:Calibri;font-size:14pt;font-weight:bold;text-align:center;padding:12px;border:1px solid ${azul};">
+    RELATÓRIO DE NOTAS FISCAIS DE ENTRADA — ${period}
+  </td></tr>
+  <tr><td colspan="11" style="background:${azul};color:#FFFFFF;font-family:Calibri;font-size:10pt;text-align:center;padding:4px;border:1px solid ${azul};">
+    Empresa: Santos Solução em Análises Clínicas
+  </td></tr>
+  <tr><td colspan="11" style="background:${azul};color:#FFFFFF;font-family:Calibri;font-size:10pt;text-align:center;padding:4px;border:1px solid ${azul};">
+    CNPJ: 30.404.126/0001-92
+  </td></tr>
+  <tr><td colspan="11" style="background:${azul};color:#FFFFFF;font-family:Calibri;font-size:10pt;text-align:center;padding:4px;border:1px solid ${azul};">
+    Gerado em: ${new Date().toLocaleString('pt-BR')}
+  </td></tr>
+
+  <!-- Espaço -->
+  <tr><td colspan="11" style="padding:4px;"></td></tr>
+
+  <!-- Título Resumo -->
+  <tr><td colspan="11" style="font-family:Calibri;font-size:11pt;font-weight:bold;text-align:center;padding:6px;border:1px solid #CCCCCC;">
+    RESUMO DO PERÍODO
+  </td></tr>
+
+  <!-- Cards de resumo -->
+  <tr>
+    <td colspan="2" style="background:${azulClaro};border:2px solid ${azulMed};font-family:Calibri;font-size:10pt;text-align:center;padding:8px;vertical-align:middle;">
+      <b>Total de Notas</b><br><span style="font-size:14pt;color:${azul};"><b>${data.length}</b></span>
+    </td>
+    <td colspan="3" style="background:${azulClaro};border:2px solid ${azulMed};font-family:Calibri;font-size:10pt;text-align:center;padding:8px;vertical-align:middle;">
+      <b>Total Bruto</b><br><span style="font-size:14pt;color:${azul};"><b>${moeda(totalBruto)}</b></span>
+    </td>
+    <td colspan="3" style="background:${azulClaro};border:2px solid ${azulMed};font-family:Calibri;font-size:10pt;text-align:center;padding:8px;vertical-align:middle;">
+      <b>Total ICMS</b><br><span style="font-size:14pt;color:${azul};"><b>${moeda(totalICMS)}</b></span>
+    </td>
+    <td colspan="3" style="background:${azulClaro};border:2px solid ${azulMed};font-family:Calibri;font-size:10pt;text-align:center;padding:8px;vertical-align:middle;">
+      <b>Total Impostos</b><br><span style="font-size:14pt;color:${azul};"><b>${moeda(totalImpostos)}</b></span>
+    </td>
+  </tr>
+
+  <!-- Espaço -->
+  <tr><td colspan="11" style="padding:4px;"></td></tr>
+
+  <!-- Cabeçalho da tabela -->
+  <tr>
+    ${['Fornecedor','N° NF','CFOP','Tipo','Data Emissão','Data Entrada','Data Confirmação','Valor Bruto','ICMS','PIS','COFINS'].map(h =>
+      `<td style="background:${azulMed};color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:center;padding:6px 8px;border:1px solid ${azulMed};">${h}</td>`
+    ).join('')}
+  </tr>
+
+  ${rows}
+
+  <!-- Totais -->
+  <tr>
+    <td colspan="7" style="background:${azul};color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:right;padding:6px 8px;border:1px solid ${azul};">TOTAL</td>
+    <td style="background:${azul};color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:right;padding:6px 8px;border:1px solid ${azul};">${moeda(totalBruto)}</td>
+    <td style="background:${azul};color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:right;padding:6px 8px;border:1px solid ${azul};">${moeda(totalICMS)}</td>
+    <td style="background:${azul};color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:right;padding:6px 8px;border:1px solid ${azul};">${moeda(totalPIS)}</td>
+    <td style="background:${azul};color:#FFFFFF;font-family:Calibri;font-size:10pt;font-weight:bold;text-align:right;padding:6px 8px;border:1px solid ${azul};">${moeda(totalCOFINS)}</td>
+  </tr>
+
+</table>
+</body></html>`;
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `NF-Entrada-${period.replace(' ','-')}.xls`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Excel exportado com formatação!', 'ok');
 }
 
 function exportJSON() {
