@@ -1759,6 +1759,479 @@ function changePeriod(d) {
   document.getElementById('period-display').textContent = MONTHS_PT[dt.getMonth()] + ' ' + dt.getFullYear();
 }
 
+
+
+// ============================================================
+// LOAD DATA — Notas, CFOP, Fornecedores
+// ============================================================
+async function loadNotas() {
+  if (!sb || !EMPRESA_ID) return;
+  const spinEl = document.getElementById('notas-spin');
+  if (spinEl) spinEl.style.display = 'inline-block';
+  const search = document.getElementById('search-notas')?.value.trim() || '';
+  const tipo = document.getElementById('filter-tipo')?.value || '';
+  const status = document.getElementById('filter-status')?.value || '';
+
+  try {
+    let q = sb.from('notas_fiscais')
+      .select('*, fornecedores(razao_social)')
+      .eq('empresa_id', EMPRESA_ID)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (tipo) q = q.eq('tipo', tipo);
+    if (status) q = q.eq('status', status);
+    if (search) q = q.or('chave_nfe.ilike.%' + search + '%,numero_nf.ilike.%' + search + '%');
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    document.getElementById('notas-count').textContent = (data?.length || 0) + ' notas';
+    const tbody = document.getElementById('notas-body');
+    if (!data || !data.length) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text3);">Nenhuma nota encontrada</td></tr>';
+    } else {
+      tbody.innerHTML = data.map(n => 
+        '<tr>' +
+        '<td><span class="nfe-key">' + (n.chave_nfe||'').substring(0,22) + '...</span></td>' +
+        '<td style="font-size:12px;font-weight:500;">' + (n.fornecedores?.razao_social || '—') + '</td>' +
+        '<td class="td-mono">' + (n.numero_nf || '—') + '</td>' +
+        '<td class="td-mono" style="color:var(--accent);">' + (n.cfop || '—') + '</td>' +
+        '<td>' + tipoBadge(n.tipo) + '</td>' +
+        '<td class="td-mono">' + (n.data_emissao || '—') + '</td>' +
+        '<td class="td-value">R$ ' + fmtBRL(n.valor_bruto) + '</td>' +
+        '<td class="td-mono" style="color:var(--warn);">R$ ' + fmtBRL((n.valor_icms||0)+(n.valor_pis||0)+(n.valor_cofins||0)) + '</td>' +
+        '<td>' + statusBadge(n.status) + '</td>' +
+        '<td style="display:flex;gap:4px;"><button class="btn-xs" onclick="openNota(\'' + n.id + '\')">Ver</button>' +
+        (n.status==='Pendente'?'<button class="btn-xs confirm" onclick="confirmNotaDB(\'' + n.id + '\')">✓</button>':'') +
+        '</td></tr>'
+      ).join('');
+    }
+  } catch(e) {
+    toast('Erro ao carregar notas: ' + e.message, 'err');
+  } finally {
+    if (spinEl) spinEl.style.display = 'none';
+  }
+}
+
+async function loadCfop() {
+  if (!sb || !EMPRESA_ID) return;
+  const { data } = await sb.from('cfop_rules').select('*').eq('empresa_id', EMPRESA_ID).order('cfop');
+  document.getElementById('cfop-count').textContent = (data?.length || 0) + ' regras';
+  const grid = document.getElementById('cfop-grid');
+  if (!data || !data.length) { grid.innerHTML = '<div style="color:var(--text3);text-align:center;padding:20px;">Nenhuma regra cadastrada</div>'; return; }
+  grid.innerHTML = data.map(r => 
+    '<div class="cfop-item">' +
+    '<div class="cfop-code">' + r.cfop + '</div>' +
+    '<div class="cfop-desc"><div class="cfop-name">' + r.descricao + '</div><div class="cfop-type">Conta: ' + (r.conta_contabil || '—') + '</div></div>' +
+    tipoBadge(r.tipo) +
+    '<button class="btn-xs" onclick="deleteCfop(\'' + r.id + '\',\'' + r.cfop + '\')">✕</button>' +
+    '</div>'
+  ).join('');
+}
+
+async function loadFornecedores() {
+  if (!sb || !EMPRESA_ID) return;
+  const { data } = await sb.from('fornecedores').select('*').eq('empresa_id', EMPRESA_ID).order('razao_social');
+  document.getElementById('forn-count').textContent = (data?.length || 0) + ' fornecedores';
+  const tbody = document.getElementById('forn-body');
+  if (!data || !data.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text3);">Nenhum fornecedor</td></tr>'; return; }
+  tbody.innerHTML = data.map(f => {
+    const tbHtml = f.tipo_padrao ? tipoBadgeStr(f.tipo_padrao) : '<span style="font-size:11px;color:var(--text3);">Pelo CFOP</span>';
+    const cnpjFmt = f.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    return '<tr>' +
+      '<td style="font-size:12px;font-weight:500;">' + f.razao_social + '</td>' +
+      '<td class="td-mono">' + cnpjFmt + '</td>' +
+      '<td class="td-mono">' + (f.uf || '—') + '</td>' +
+      '<td>' + tbHtml + '</td>' +
+      '<td>' + (f.status_receita==='Ativa'?'<span class="badge badge-green">Ativa</span>':'<span class="badge badge-red">Baixada</span>') + '</td>' +
+      '<td><button class="btn-xs" onclick="editarFornecedor(\'' + f.id + '\',\'' + f.razao_social.replace(/'/g,'') + '\',\'' + f.cnpj + '\',\'' + (f.tipo_padrao||'') + '\')">✏️ Editar</button></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function tipoBadgeStr(t) {
+  const map = { Revenda:'badge-green', Consumo:'badge-blue', Imobilizado:'badge-purple', PENDENTE_CLASSIFICACAO:'badge-yellow' };
+  return '<span class="badge ' + (map[t]||'badge-yellow') + '">' + t + '</span>';
+}
+
+function editarFornecedor(id, nome, cnpj, tipoPadrao) {
+  document.getElementById('forn-edit-id').value = id;
+  document.getElementById('forn-edit-nome').value = nome;
+  document.getElementById('forn-edit-cnpj').value = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  document.getElementById('forn-edit-tipo').value = tipoPadrao || '';
+  document.getElementById('modal-forn-title').textContent = 'Editar: ' + nome;
+  openModal('modal-forn');
+}
+
+async function salvarFornecedor() {
+  const id = document.getElementById('forn-edit-id').value;
+  const tipoPadrao = document.getElementById('forn-edit-tipo').value || null;
+  const { error } = await sb.from('fornecedores').update({ tipo_padrao: tipoPadrao }).eq('id', id);
+  if (error) { toast('Erro: ' + error.message, 'err'); return; }
+  if (tipoPadrao) {
+    await sb.from('notas_fiscais').update({ tipo: tipoPadrao }).eq('fornecedor_id', id).eq('empresa_id', EMPRESA_ID);
+    toast('Fornecedor e notas atualizados para ' + tipoPadrao, 'ok');
+  } else {
+    toast('Tipo padrão removido', 'ok');
+  }
+  closeModal('modal-forn');
+  loadFornecedores();
+  loadDashboard();
+}
+
+async function loadRelatorio() {
+  if (!sb || !EMPRESA_ID) return;
+  const spinEl = document.getElementById('rel-spin');
+  if (spinEl) spinEl.style.display = 'inline-block';
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + currentPeriodOffset, 1);
+  const firstDay = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
+  try {
+    const { data } = await sb.from('notas_fiscais').select('*')
+      .eq('empresa_id', EMPRESA_ID)
+      .eq('status', 'Confirmada')
+      .gte('confirmed_at', firstDay)
+      .lte('confirmed_at', lastDay);
+
+    if (!data) return;
+    const total = data.reduce((s,n)=>s+(n.valor_bruto||0),0);
+    const imp = data.reduce((s,n)=>s+(n.valor_icms||0)+(n.valor_pis||0)+(n.valor_cofins||0),0);
+    document.getElementById('rel-total').textContent = 'R$ ' + fmtBRL(total);
+    document.getElementById('rel-impostos').textContent = 'R$ ' + fmtBRL(imp);
+    document.getElementById('rel-qtd').textContent = data.length;
+
+    const byCfop = {};
+    data.forEach(n => {
+      if (!byCfop[n.cfop]) byCfop[n.cfop] = { tipo: n.tipo, qtd:0, bruto:0, icms:0, pis:0, cofins:0 };
+      byCfop[n.cfop].qtd++;
+      byCfop[n.cfop].bruto += n.valor_bruto||0;
+      byCfop[n.cfop].icms += n.valor_icms||0;
+      byCfop[n.cfop].pis += n.valor_pis||0;
+      byCfop[n.cfop].cofins += n.valor_cofins||0;
+    });
+
+    const tbody = document.getElementById('rel-body');
+    if (!Object.keys(byCfop).length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3);">Nenhuma nota no período</td></tr>';
+    } else {
+      tbody.innerHTML = Object.entries(byCfop).map(([cfop, v]) => 
+        '<tr>' +
+        '<td class="td-mono" style="color:var(--accent);">' + cfop + '</td>' +
+        '<td>' + tipoBadge(v.tipo) + '</td>' +
+        '<td class="td-mono">' + v.qtd + '</td>' +
+        '<td class="td-value">R$ ' + fmtBRL(v.bruto) + '</td>' +
+        '<td class="td-mono" style="color:var(--warn);">R$ ' + fmtBRL(v.icms) + '</td>' +
+        '<td class="td-mono" style="color:var(--info);">R$ ' + fmtBRL(v.pis) + '</td>' +
+        '<td class="td-mono" style="color:var(--info);">R$ ' + fmtBRL(v.cofins) + '</td>' +
+        '</tr>'
+      ).join('');
+    }
+
+    const hash = btoa(JSON.stringify({total, imp, qtd: data.length, period: firstDay})).substring(0,32);
+    const hashEl = document.getElementById('rel-hash');
+    if (hashEl) hashEl.textContent = 'Hash: ' + hash + '...';
+    window._relData = data;
+
+    const fornIds = [...new Set(data.filter(n=>n.fornecedor_id).map(n=>n.fornecedor_id))];
+    let fornMap = {};
+    if (fornIds.length > 0) {
+      const { data: forns } = await sb.from('fornecedores').select('id,razao_social').in('id', fornIds);
+      if (forns) forns.forEach(f => fornMap[f.id] = f.razao_social);
+    }
+    window._relFornMap = fornMap;
+
+    document.getElementById('rel-nf-count').textContent = data.length + ' notas';
+    const tbodyNF = document.getElementById('rel-nf-body');
+    if (!data.length) {
+      tbodyNF.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3);">Nenhuma nota no período</td></tr>';
+    } else {
+      const sorted = [...data].sort((a,b) => new Date(a.confirmed_at) - new Date(b.confirmed_at));
+      tbodyNF.innerHTML = sorted.map(n => {
+        const fornNome = fornMap[n.fornecedor_id] || '—';
+        const dtEmissao = n.data_emissao ? n.data_emissao.split('-').reverse().join('/') : '—';
+        const dtEntrada = n.created_at ? n.created_at.substring(0,10).split('-').reverse().join('/') : '—';
+        const dtConfirmacao = n.confirmed_at ? n.confirmed_at.substring(0,10).split('-').reverse().join('/') : '—';
+        return '<tr>' +
+          '<td style="font-size:12px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + fornNome + '">' + fornNome + '</td>' +
+          '<td class="td-mono">' + (n.numero_nf||'—') + '</td>' +
+          '<td class="td-mono" style="color:var(--accent);">' + (n.cfop||'—') + '</td>' +
+          '<td>' + tipoBadgeStr(n.tipo) + '</td>' +
+          '<td class="td-mono">' + dtEmissao + '</td>' +
+          '<td class="td-mono">' + dtEntrada + '</td>' +
+          '<td class="td-mono">' + dtConfirmacao + '</td>' +
+          '<td class="td-value">R$ ' + fmtBRL(n.valor_bruto) + '</td>' +
+          '<td class="td-mono" style="color:var(--warn);">R$ ' + fmtBRL(n.valor_icms) + '</td>' +
+          '<td class="td-mono" style="color:var(--info);">R$ ' + fmtBRL(n.valor_pis) + '</td>' +
+          '<td class="td-mono" style="color:var(--info);">R$ ' + fmtBRL(n.valor_cofins) + '</td>' +
+          '<td><button class="btn-xs" onclick="openNota(\'' + n.id + '\')">Ver</button></td>' +
+          '</tr>';
+      }).join('');
+    }
+  } catch(e) { toast('Erro: '+e.message,'err'); }
+  finally { if (spinEl) spinEl.style.display = 'none'; }
+}
+
+// ============================================================
+// MODAL NOTA + AÇÕES
+// ============================================================
+async function openNota(id) {
+  if (!sb) return;
+  const { data: n } = await sb.from('notas_fiscais').select('*, fornecedores(razao_social, cnpj)').eq('id', id).single();
+  if (!n) return;
+
+  document.getElementById('modal-nota-title').textContent = 'NF-e #' + (n.numero_nf || '—') + ' · ' + (n.fornecedores?.razao_social || '—');
+  document.getElementById('modal-nota-body').innerHTML = 
+    '<div class="detail-row"><div class="detail-label">Chave NF-e</div><div class="detail-value"><span class="nfe-key">' + n.chave_nfe + '</span></div></div>' +
+    '<div class="detail-row"><div class="detail-label">Fornecedor</div><div class="detail-value">' + (n.fornecedores?.razao_social||'—') + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">CNPJ Fornecedor</div><div class="detail-value td-mono">' + (n.fornecedores?.cnpj||'—') + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">Número NF / Série</div><div class="detail-value td-mono">' + (n.numero_nf||'—') + ' / ' + (n.serie||'—') + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">CFOP</div><div class="detail-value"><span style="color:var(--accent);font-family:DM Mono,monospace;font-weight:600;">' + (n.cfop||'—') + '</span></div></div>' +
+    '<div class="detail-row"><div class="detail-label">Classificação</div><div class="detail-value">' + tipoBadge(n.tipo) + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">Data de Emissão</div><div class="detail-value td-mono">' + (n.data_emissao||'—') + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">Valor Bruto</div><div class="detail-value" style="font-weight:600;">R$ ' + fmtBRL(n.valor_bruto) + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">Desconto</div><div class="detail-value">R$ ' + fmtBRL(n.valor_desconto) + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">ICMS</div><div class="detail-value" style="color:var(--warn);">R$ ' + fmtBRL(n.valor_icms) + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">PIS</div><div class="detail-value" style="color:var(--info);">R$ ' + fmtBRL(n.valor_pis) + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">COFINS</div><div class="detail-value" style="color:var(--info);">R$ ' + fmtBRL(n.valor_cofins) + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">Origem</div><div class="detail-value"><span class="badge badge-blue">' + (n.origem||'Upload') + '</span></div></div>' +
+    '<div class="detail-row"><div class="detail-label">Status</div><div class="detail-value">' + statusBadge(n.status) + '</div></div>' +
+    '<div class="detail-row"><div class="detail-label">Registrado em</div><div class="detail-value td-mono" style="font-size:10px;">' + (n.created_at?.replace('T',' ').substring(0,19)||'—') + '</div></div>';
+
+  const confirmBtn = document.getElementById('modal-confirm-btn');
+  confirmBtn.style.display = n.status === 'Pendente' ? 'flex' : 'none';
+  confirmBtn.onclick = () => confirmNotaDB(id);
+  openModal('modal-nota');
+}
+
+async function confirmNotaDB(id) {
+  if (!sb) return;
+  const { error } = await sb.from('notas_fiscais').update({
+    status: 'Confirmada', confirmed_at: new Date().toISOString()
+  }).eq('id', id);
+  if (error) { toast('Erro: ' + error.message, 'err'); return; }
+  await sb.from('audit_log').insert({
+    empresa_id: EMPRESA_ID, acao: 'CONFIRMAR_NF', tabela: 'notas_fiscais',
+    registro_id: id, detalhe: { timestamp: new Date().toISOString() }
+  });
+  closeModal('modal-nota');
+  toast('NF-e confirmada', 'ok');
+  loadNotas();
+  loadDashboard();
+  updateBadges();
+}
+
+async function saveCfopRule() {
+  const code = document.getElementById('new-cfop-code').value.trim();
+  const desc = document.getElementById('new-cfop-desc').value.trim();
+  const tipo = document.getElementById('new-cfop-type').value;
+  const conta = document.getElementById('new-cfop-conta').value.trim();
+  if (!code || !desc) { toast('Preencha código e descrição', 'warn'); return; }
+  const { error } = await sb.from('cfop_rules').insert({
+    empresa_id: EMPRESA_ID, cfop: code, descricao: desc, tipo, conta_contabil: conta || null
+  });
+  if (error) {
+    if (error.code === '23505') toast('CFOP ' + code + ' já cadastrado', 'warn');
+    else toast('Erro: ' + error.message, 'err');
+    return;
+  }
+  closeModal('modal-cfop');
+  toast('CFOP ' + code + ' salvo', 'ok');
+  document.getElementById('new-cfop-code').value = '';
+  document.getElementById('new-cfop-desc').value = '';
+  document.getElementById('new-cfop-conta').value = '';
+  loadCfop();
+}
+
+async function deleteCfop(id, code) {
+  const { error } = await sb.from('cfop_rules').delete().eq('id', id);
+  if (error) { toast('Erro: ' + error.message, 'err'); return; }
+  toast('CFOP ' + code + ' removido', 'warn');
+  loadCfop();
+}
+
+async function updateBadges() {
+  if (!sb || !EMPRESA_ID) return;
+  const bnBadge = document.getElementById('bn-badge');
+  const { count } = await sb.from('notas_fiscais').select('*', { count:'exact', head:true }).eq('empresa_id', EMPRESA_ID).eq('status', 'Pendente');
+  if (bnBadge) {
+    if (count > 0) { bnBadge.textContent = count > 9 ? '9+' : count; bnBadge.style.display = 'flex'; }
+    else bnBadge.style.display = 'none';
+  }
+  const pb = document.getElementById('pending-badge');
+  if (pb) pb.textContent = count || 0;
+}
+
+async function loadUsuariosBadge() {
+  if (!sb) return;
+  const { count } = await sb.from('usuarios').select('*', { count:'exact', head:true }).eq('status','pendente');
+  const badge = document.getElementById('usuarios-badge');
+  if (badge) {
+    if (count > 0) { badge.textContent = count; badge.style.display = 'inline-flex'; }
+    else badge.style.display = 'none';
+  }
+}
+
+async function loadSefazConfig() { /* removed */ }
+
+// ============================================================
+// UPLOAD XML
+// ============================================================
+async function processXmlText(xmlText, filename) {
+  const get = (tag) => {
+    const m = xmlText.match(new RegExp('<' + tag + '[^>]*>([^<]+)</' + tag + '>'));
+    return m ? m[1].trim() : null;
+  };
+  const chave = xmlText.match(/Id="NFe(\d{44})"/)?.[1] || null;
+  if (!chave) return { status:'err', detail:'Chave NF-e não encontrada' };
+
+  const icmsTotStart = xmlText.indexOf('ICMSTot>');
+  const icmsTotEnd = xmlText.indexOf('/ICMSTot>');
+  const icmsTotBlock = icmsTotStart > -1 && icmsTotEnd > -1 ? xmlText.substring(icmsTotStart, icmsTotEnd + 9) : '';
+  const getFromBlock = (block, tag) => {
+    const m = block.match(new RegExp('<' + tag + '[^>]*>([^<]+)</' + tag + '>'));
+    return m ? m[1].trim() : null;
+  };
+
+  const vNF = parseFloat(getFromBlock(icmsTotBlock, 'vNF') || get('vNF') || '0');
+  const vDesc = parseFloat(getFromBlock(icmsTotBlock, 'vDesc') || '0');
+  const vICMS = parseFloat(getFromBlock(icmsTotBlock, 'vICMS') || '0');
+  const vPIS = parseFloat(getFromBlock(icmsTotBlock, 'vPIS') || '0');
+  const vCOFINS = parseFloat(getFromBlock(icmsTotBlock, 'vCOFINS') || '0');
+  const vIPI = parseFloat(getFromBlock(icmsTotBlock, 'vIPI') || '0');
+  const vST = parseFloat(getFromBlock(icmsTotBlock, 'vST') || '0');
+
+  const cfops = [...xmlText.matchAll(/<CFOP>(\d+)<\/CFOP>/g)].map(m => m[1]);
+  const cfopCount = {};
+  cfops.forEach(c => cfopCount[c] = (cfopCount[c] || 0) + 1);
+  const cfopRaw = Object.keys(cfopCount).sort((a,b) => cfopCount[b]-cfopCount[a])[0] || '';
+  const cfop = cfopRaw.includes('.') ? cfopRaw : (cfopRaw.length === 4 ? cfopRaw[0] + '.' + cfopRaw.slice(1) : cfopRaw);
+
+  const nf = {
+    empresa_id: EMPRESA_ID, chave_nfe: chave,
+    numero_nf: get('nNF'), serie: get('serie'), cfop,
+    data_emissao: get('dhEmi')?.substring(0,10) || get('dEmi'),
+    valor_bruto: vNF, valor_desconto: vDesc,
+    valor_icms: vICMS, valor_pis: vPIS, valor_cofins: vCOFINS,
+    valor_ipi: vIPI, valor_st: vST,
+    status: 'Pendente', origem: 'Upload'
+  };
+
+  const cnpjForn = get('CNPJ');
+  if (cnpjForn) {
+    const { data: fExists } = await sb.from('fornecedores').select('id, tipo_padrao').eq('empresa_id', EMPRESA_ID).eq('cnpj', cnpjForn).maybeSingle();
+    if (fExists) {
+      nf.fornecedor_id = fExists.id;
+      if (fExists.tipo_padrao) nf.tipo = fExists.tipo_padrao;
+    } else {
+      const { data: newF } = await sb.from('fornecedores').insert({
+        empresa_id: EMPRESA_ID, cnpj: cnpjForn,
+        razao_social: get('xNome') || 'Fornecedor importado', uf: get('UF')
+      }).select('id').single();
+      if (newF) nf.fornecedor_id = newF.id;
+    }
+  }
+
+  if (!nf.tipo && nf.cfop) {
+    const { data: rule } = await sb.from('cfop_rules').select('tipo').eq('empresa_id', EMPRESA_ID).eq('cfop', nf.cfop).maybeSingle();
+    nf.tipo = rule?.tipo || 'PENDENTE_CLASSIFICACAO';
+  }
+  if (!nf.tipo) nf.tipo = 'PENDENTE_CLASSIFICACAO';
+
+  const { error } = await sb.from('notas_fiscais').insert(nf);
+  if (error) {
+    if (error.code === '23505') return { status:'dup', detail:'Duplicada — chave já processada (idempotência)' };
+    return { status:'err', detail: error.message };
+  }
+  await sb.from('audit_log').insert({ empresa_id: EMPRESA_ID, acao: 'UPLOAD_NF', tabela: 'notas_fiscais', detalhe: { chave_nfe: chave, cfop: nf.cfop, tipo: nf.tipo } });
+  return { status:'ok', detail: 'CFOP ' + nf.cfop + ' · ' + nf.tipo + ' · R$ ' + fmtBRL(nf.valor_bruto) };
+}
+
+async function processFiles(files) {
+  const list = document.getElementById('upload-list');
+  list.innerHTML = '';
+  let ok=0, dup=0, err=0;
+  for (let i=0; i<files.length; i++) {
+    const f = files[i];
+    const item = document.createElement('div');
+    item.className = 'upload-item';
+    item.innerHTML = '<div class="upload-item-icon icon-xml">XML</div>' +
+      '<div class="upload-item-info"><div class="upload-item-name">' + f.name + '</div><div class="upload-item-detail" id="det-' + i + '">Processando...</div></div>' +
+      '<div class="progress-bar"><div class="progress-fill fill-blue" id="fill-' + i + '" style="width:30%"></div></div>' +
+      '<div class="upload-status" id="st-' + i + '">...</div>';
+    list.appendChild(item);
+
+    const text = await f.text();
+    const result = await processXmlText(text, f.name);
+    const icon = item.querySelector('.upload-item-icon');
+    const det = document.getElementById('det-'+i);
+    const fill = document.getElementById('fill-'+i);
+    const st = document.getElementById('st-'+i);
+    det.textContent = result.detail;
+    if (result.status==='ok') {
+      icon.className='upload-item-icon icon-ok'; icon.textContent='✓';
+      fill.className='progress-fill fill-green'; fill.style.width='100%';
+      st.textContent='OK'; st.style.color='var(--accent)';
+      ok++;
+    } else if (result.status==='dup') {
+      icon.className='upload-item-icon icon-dup'; icon.textContent='!';
+      fill.className='progress-fill fill-yellow'; fill.style.width='100%';
+      st.textContent='DUP'; st.style.color='var(--warn)';
+      dup++;
+    } else {
+      icon.className='upload-item-icon icon-err'; icon.textContent='✗';
+      fill.className='progress-fill fill-red'; fill.style.width='100%';
+      st.textContent='ERR'; st.style.color='var(--danger)';
+      err++;
+    }
+  }
+  document.getElementById('upload-summary').textContent = ok + ' OK · ' + dup + ' dup · ' + err + ' erros';
+  toast(ok + ' nota(s) processadas', ok > 0 ? 'ok' : 'warn');
+  loadDashboard();
+  updateBadges();
+}
+
+function handleDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('dragover'); }
+function handleDragLeave() { document.getElementById('upload-zone').classList.remove('dragover'); }
+function handleDrop(e) { e.preventDefault(); document.getElementById('upload-zone').classList.remove('dragover'); if (e.dataTransfer.files.length) processFiles(Array.from(e.dataTransfer.files)); }
+function handleFileInput(e) { if (e.target.files.length) processFiles(Array.from(e.target.files)); }
+function simulateUpload() { toast('Funcionalidade desativada', 'warn'); }
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+function statusBadge(s) {
+  const map = { Confirmada:'badge-green', Pendente:'badge-yellow', Duplicada:'badge-red', Rejeitada:'badge-red' };
+  return '<span class="badge ' + (map[s]||'badge-blue') + '">' + s + '</span>';
+}
+function tipoBadge(t) {
+  const map = { Revenda:'badge-green', Consumo:'badge-blue', Imobilizado:'badge-purple', PENDENTE_CLASSIFICACAO:'badge-yellow' };
+  return '<span class="badge ' + (map[t]||'badge-yellow') + '">' + (t||'—') + '</span>';
+}
+function fmtBRL(v) {
+  return (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function addLog(type, msg) {
+  // No-op since SEFAZ log was removed
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) closeModal(m.id); }));
+function toast(msg, type) {
+  type = type || 'ok';
+  const c = document.getElementById('toast-container');
+  if (!c) return;
+  const t = document.createElement('div'); t.className='toast';
+  const col = {ok:'var(--accent)',warn:'var(--warn)',info:'var(--info)',err:'var(--danger)'};
+  t.innerHTML='<div class="toast-dot" style="background:' + (col[type]||col.ok) + '"></div><div class="toast-text">' + msg + '</div>';
+  c.appendChild(t);
+  setTimeout(()=>{ t.classList.add('fade-out'); setTimeout(()=>t.remove(),300); },3500);
+}
+function openCfopModal() { openModal('modal-cfop'); }
+function downloadSchema() { toast('Schema não disponível', 'warn'); }
+function renderPendingList() {}
+
 </script>
 
 <!-- BOTTOM NAV — mobile only -->
