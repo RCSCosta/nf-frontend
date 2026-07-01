@@ -1,0 +1,28 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    # Roda a cada 3 dias, às 09:00 UTC (06:00 em Aracaju)
+    - cron: '0 9 */3 * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          STATUS=$(curl -s -o /tmp/resp.txt -w "%{http_code}" \
+            "${SUPABASE_URL}/rest/v1/empresas?select=count" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}")
+          echo "HTTP status: $STATUS"
+          echo "Resposta: $(cat /tmp/resp.txt)"
+          if [ "$STATUS" != "200" ]; then
+            echo "Falha no ping — status $STATUS"
+            exit 1
+          fi
+          echo "Keep-alive OK"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
